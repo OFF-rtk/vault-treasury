@@ -50,6 +50,14 @@ const adminItems: NavItem[] = [
     },
 ];
 
+const handleLogout = async () => {
+    await fetch('/api/logout', {
+        method: 'POST',
+    });
+
+    window.location.href = '/login';
+};
+
 export function Sidebar() {
     const pathname = usePathname();
 
@@ -112,6 +120,7 @@ export function Sidebar() {
                         <button
                             className="text-muted-foreground hover:text-foreground transition-colors"
                             title="Sign out"
+                            onClick={handleLogout}
                         >
                             <LogOut className="h-4 w-4" />
                         </button>

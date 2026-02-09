@@ -1,17 +1,14 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
-import { SignupsService } from './signups.service';
+import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { SignupsService, SignupResponse } from './signups.service';
+import { CreateSignupDto } from './dto/create-signup.dto';
 
 @Controller('signups')
 export class SignupsController {
     constructor(private readonly signupsService: SignupsService) { }
 
-    @Get()
-    findAll() {
-        return { module: 'signups', status: 'ok', data: [] };
-    }
-
     @Post()
-    create(@Body() createSignupDto: any) {
-        return { module: 'signups', status: 'ok', action: 'created' };
+    @HttpCode(HttpStatus.CREATED)
+    async create(@Body() createSignupDto: CreateSignupDto): Promise<SignupResponse> {
+        return this.signupsService.create(createSignupDto);
     }
 }
