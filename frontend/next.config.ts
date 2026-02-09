@@ -11,7 +11,12 @@ const nextConfig: NextConfig = {
 
   // Image optimization
   images: {
-    remotePatterns: [],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+      },
+    ],
   },
 };
 
