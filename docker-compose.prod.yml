@@ -1,8 +1,9 @@
 # Vault Treasury — Production Docker Configuration
 #
-# Based on system_architecture.md
+# Optimized production builds with health checks
 # Use: docker compose -f docker-compose.prod.yml up --build
 #
+# Note: Uses Upstash Redis (cloud-hosted), no local Redis container needed
 
 services:
   frontend:
@@ -17,7 +18,7 @@ services:
       - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - NEXT_PUBLIC_VAULT_API_URL=http://backend:8001
-      - NEXT_PUBLIC_SENTINEL_API_URL=${SENTINEL_API_URL:-http://sentinel:8000}
+      - NEXT_PUBLIC_SENTINEL_API_URL=${SENTINEL_API_URL}
     depends_on:
       backend:
         condition: service_healthy
@@ -38,42 +39,19 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
-      - SENTINEL_API_URL=${SENTINEL_API_URL:-http://sentinel:8000}
-      - REDIS_URL=redis://redis:6379
+      - SENTINEL_API_URL=${SENTINEL_API_URL}
+      - REDIS_URL=${REDIS_URL}
       - FRONTEND_URL=http://frontend:3000
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - vault-network
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://localhost:8001/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
     networks:
       - vault-network
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: unless-stopped
-    command: redis-server --appendonly yes
 
 networks:
   vault-network:
     driver: bridge
-
-volumes:
-  redis-data:
-    driver: local

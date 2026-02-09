@@ -8,38 +8,13 @@
 
 - Docker 20.10+
 - Docker Compose v2+
-- Create `.env` file from `.env.example` with your Supabase credentials
+- Create `.env` file from `.env.example` with your credentials
+- **Upstash Redis** account (cloud-hosted Redis)
 
 ```bash
 # Check Docker version
 docker --version
 docker compose version
-```
-
----
-
-## Infrastructure Only (Redis)
-
-Use when running frontend/backend locally but need Redis for BullMQ.
-
-```bash
-# Start Redis only
-docker compose -f docker-compose.infra.yml up -d
-
-# Check Redis status
-docker compose -f docker-compose.infra.yml ps
-
-# View Redis logs
-docker compose -f docker-compose.infra.yml logs -f redis
-
-# Stop Redis
-docker compose -f docker-compose.infra.yml down
-
-# Stop and remove volumes (clears data)
-docker compose -f docker-compose.infra.yml down -v
-
-# Connect to Redis CLI
-docker exec -it vault-redis redis-cli
 ```
 
 ---
@@ -145,9 +120,6 @@ docker system prune -a --volumes -f
 
 # Remove specific project images
 docker rmi vault-treasury-frontend vault-treasury-backend
-
-# Remove all project volumes
-docker volume rm vault-treasury_redis-data
 ```
 
 ---
@@ -170,10 +142,6 @@ docker cp vault-treasury-backend-1:/app/dist ./local-dist
 # Access container shell
 docker exec -it vault-treasury-backend-1 sh
 docker exec -it vault-treasury-frontend-1 sh
-docker exec -it vault-redis redis-cli
-
-# Check network connectivity
-docker compose -f docker-compose.dev.yml exec backend ping redis
 ```
 
 ---
@@ -200,14 +168,13 @@ docker compose -f docker-compose.dev.yml up
 ### Local Development (Recommended)
 
 ```bash
-# Start only Redis
-docker compose -f docker-compose.infra.yml up -d
-
 # Run frontend locally
 cd frontend && pnpm dev
 
 # Run backend locally (in another terminal)
 cd backend && pnpm start:dev
+
+# Redis is provided by Upstash (no local container needed)
 ```
 
 ---
@@ -223,6 +190,9 @@ SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 SUPABASE_JWT_SECRET=your-jwt-secret
 
+# Upstash Redis (TLS connection)
+REDIS_URL=rediss://default:YOUR_PASSWORD@your-endpoint.upstash.io:6379
+
 # Sentinel (optional, defaults to localhost)
 SENTINEL_API_URL=http://localhost:8000
 ```
@@ -236,5 +206,5 @@ SENTINEL_API_URL=http://localhost:8000
 | Frontend | 3000 | http://localhost:3000 |
 | Backend API | 8001 | http://localhost:8001/api |
 | Health Check | 8001 | http://localhost:8001/api/health |
-| Redis | 6379 | localhost:6379 |
 | Sentinel-ML | 8000 | http://localhost:8000 |
+| Upstash Redis | 6379 | rediss://...upstash.io:6379 |

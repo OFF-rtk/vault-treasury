@@ -3,6 +3,7 @@
 # Hot-reloading enabled for local development
 # Use: docker compose -f docker-compose.dev.yml up --build
 #
+# Note: Uses Upstash Redis (cloud-hosted), no local Redis container needed
 
 services:
   frontend:
@@ -42,7 +43,7 @@ services:
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
       - SENTINEL_API_URL=${SENTINEL_API_URL:-http://localhost:8000}
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=${REDIS_URL}
       - FRONTEND_URL=http://localhost:3000
       - DEBUG=true
     volumes:
@@ -50,30 +51,9 @@ services:
       - ./backend/nest-cli.json:/app/nest-cli.json:ro
       - ./backend/tsconfig.json:/app/tsconfig.json:ro
       - ./backend/tsconfig.build.json:/app/tsconfig.build.json:ro
-    depends_on:
-      redis:
-        condition: service_healthy
     networks:
       - vault-network
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    networks:
-      - vault-network
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
 networks:
   vault-network:
     driver: bridge
-
-volumes:
-  redis-data:
-    driver: local
