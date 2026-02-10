@@ -97,6 +97,9 @@ export async function getSession(): Promise<{ token: string; user: UserProfile }
         });
 
         if (!response.ok) {
+            // Token is expired/invalid — clear the stale cookie so
+            // middleware won't redirect /login → /payments in a loop
+            cookieStore.delete(COOKIE_NAME);
             return null;
         }
 

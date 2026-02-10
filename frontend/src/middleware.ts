@@ -21,16 +21,17 @@ export async function middleware(request: NextRequest) {
     const isPendingRoute = pendingRoutes.some(route => pathname.startsWith(route));
     const isTerminatedRoute = terminatedRoutes.some(route => pathname.startsWith(route));
 
-    // If no token and trying to access protected route
+    // If no token and trying to access protected route → send to login
     if (!token && !isPublicRoute && !isPendingRoute && !isTerminatedRoute) {
         const loginUrl = new URL('/login', request.url);
         return NextResponse.redirect(loginUrl);
     }
 
-    // If has token and trying to access login/signup, redirect to payments
-    if (token && isPublicRoute) {
-        return NextResponse.redirect(new URL('/payments', request.url));
-    }
+    // NOTE: We intentionally do NOT redirect /login → /payments when a cookie
+    // exists. The cookie may be expired/invalid, and doing so creates an
+    // infinite redirect loop:
+    //   /payments → requireAuth() 401 → /login → middleware → /payments → …
+    // The login page handles already-authenticated users on its own.
 
     if (token && status === 'pending' && !request.nextUrl.pathname.startsWith('/under-review')) {
         return NextResponse.redirect(new URL('/under-review', request.url));
