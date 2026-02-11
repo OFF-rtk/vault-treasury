@@ -86,3 +86,29 @@ export async function smartPost<T = any>(path: string, body?: any): Promise<T> {
 
     return response.json();
 }
+
+export async function smartPatch<T = any>(path: string, body?: any): Promise<T> {
+    const headers = await getAuthHeaders();
+
+    const response = await fetch(`${process.env.VAULT_API_URL}${path}`, {
+        method: 'PATCH',
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        cache: 'no-store',
+    });
+
+    if (!response.ok) {
+        if (response.status === 428) {
+            throw new Error('CHALLENGE_REQUIRED');
+        }
+
+        if (response.status === 401) {
+            redirect('/login');
+        }
+
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || `Request failed: ${response.status}`);
+    }
+
+    return response.json();
+}

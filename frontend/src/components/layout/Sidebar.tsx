@@ -147,7 +147,6 @@ export function Sidebar({ user }: { user: UserInfo }) {
                             {user.fullName}
                         </p>
                         <div className="flex items-center gap-1.5">
-                            <ShieldCheck className="h-3 w-3 text-emerald-600" />
                             <p className="text-[10px] text-slate-500 truncate font-mono uppercase font-medium">
                                 {isAdmin ? "Admin" : "Treasurer"}
                             </p>

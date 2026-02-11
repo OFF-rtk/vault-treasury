@@ -2,6 +2,38 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { SupabaseService } from '../database/supabase.service';
 import { PaymentFiltersDto } from './dto/payment.dto';
 
+/**
+ * Static exchange rates (all rates are TO USD).
+ * To convert FROM currency A TO currency B:
+ *   amount_in_B = amount_in_A * (rate_A_to_USD / rate_B_to_USD)
+ */
+const EXCHANGE_RATES_TO_USD: Record<string, number> = {
+    USD: 1.0,
+    EUR: 1.08,
+    GBP: 1.27,
+    INR: 0.012,
+    JPY: 0.0067,
+    CAD: 0.74,
+    AUD: 0.65,
+    CHF: 1.13,
+    SGD: 0.75,
+    AED: 0.27,
+};
+
+function convertCurrency(amount: number, fromCurrency: string, toCurrency: string): number {
+    if (fromCurrency === toCurrency) return amount;
+
+    const fromRate = EXCHANGE_RATES_TO_USD[fromCurrency.toUpperCase()];
+    const toRate = EXCHANGE_RATES_TO_USD[toCurrency.toUpperCase()];
+
+    if (!fromRate || !toRate) {
+        // If rate unknown, treat as 1:1 (safe fallback for demo)
+        return amount;
+    }
+
+    return amount * (fromRate / toRate);
+}
+
 @Injectable()
 export class PaymentsService {
     private readonly logger = new Logger(PaymentsService.name);
@@ -132,15 +164,17 @@ export class PaymentsService {
 
     /**
      * Approve a pending payment.
-     * Updates payment status, inserts action record.
+     * 1. Enforces per-transaction and daily limits (with auto-reset)
+     * 2. Updates payment status + inserts action record
+     * 3. Increments daily usage + deducts source account balance
      */
     async approve(id: string, userId: string, notes?: string) {
         const client = this.supabase.getClient();
 
-        // Verify payment exists and is pending
+        // Verify payment exists and is pending — also fetch amount, currency + source account
         const { data: payment, error: fetchError } = await client
             .from('payments')
-            .select('id, status')
+            .select('id, status, amount, currency, from_account_id')
             .eq('id', id)
             .single();
 
@@ -152,7 +186,88 @@ export class PaymentsService {
             throw new BadRequestException(`Payment is already ${payment.status}`);
         }
 
-        // Update payment status
+        // --- LIMIT ENFORCEMENT (before approving) ---
+        let convertedAmount = Number(payment.amount);
+        let sourceAccount: any = null;
+
+        if (payment.from_account_id) {
+            // Fetch source account for currency conversion
+            const { data: acct } = await client
+                .from('accounts')
+                .select('id, balance, currency')
+                .eq('id', payment.from_account_id)
+                .single();
+            sourceAccount = acct;
+
+            // Convert payment amount to source account currency
+            const paymentCurrency = payment.currency || 'USD';
+            const accountCurrency = sourceAccount?.currency || 'USD';
+            convertedAmount = convertCurrency(
+                Number(payment.amount),
+                paymentCurrency,
+                accountCurrency,
+            );
+
+            this.logger.log(
+                `Currency conversion: ${payment.amount} ${paymentCurrency} → ${convertedAmount.toFixed(2)} ${accountCurrency}`,
+            );
+
+            // Check per-transaction limit
+            const { data: perTxnLimit } = await client
+                .from('account_limits')
+                .select('id, limit_amount')
+                .eq('account_id', payment.from_account_id)
+                .eq('limit_type', 'per_transaction')
+                .single();
+
+            if (perTxnLimit && convertedAmount > Number(perTxnLimit.limit_amount)) {
+                throw new BadRequestException(
+                    `Transaction amount (${convertedAmount.toFixed(2)} ${accountCurrency}) exceeds per-transaction limit (${perTxnLimit.limit_amount} ${accountCurrency})`,
+                );
+            }
+
+            // Check daily limit (with auto-reset if past 24h)
+            const { data: dailyLimit } = await client
+                .from('account_limits')
+                .select('id, limit_amount, current_usage, last_reset_at')
+                .eq('account_id', payment.from_account_id)
+                .eq('limit_type', 'daily')
+                .single();
+
+            if (dailyLimit) {
+                const lastReset = new Date(dailyLimit.last_reset_at);
+                const now = new Date();
+                const hoursSinceReset = (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60);
+
+                // Auto-reset if last reset was more than 24 hours ago
+                if (hoursSinceReset >= 24) {
+                    this.logger.log(
+                        `Daily limit reset for account ${payment.from_account_id} (last reset: ${hoursSinceReset.toFixed(1)}h ago)`,
+                    );
+                    await client
+                        .from('account_limits')
+                        .update({
+                            current_usage: 0,
+                            last_reset_at: now.toISOString(),
+                        })
+                        .eq('id', dailyLimit.id);
+                    dailyLimit.current_usage = 0;
+                }
+
+                const currentUsage = Number(dailyLimit.current_usage);
+                const dailyCap = Number(dailyLimit.limit_amount);
+                const projectedUsage = currentUsage + convertedAmount;
+
+                if (projectedUsage > dailyCap) {
+                    const remaining = Math.max(0, dailyCap - currentUsage);
+                    throw new BadRequestException(
+                        `Daily limit exceeded. Used: ${currentUsage.toFixed(2)}, Limit: ${dailyCap.toFixed(2)}, Remaining: ${remaining.toFixed(2)} ${accountCurrency}. This transaction requires ${convertedAmount.toFixed(2)} ${accountCurrency}.`,
+                    );
+                }
+            }
+        }
+
+        // --- APPROVE (limits passed) ---
         const { error: updateError } = await client
             .from('payments')
             .update({
@@ -165,6 +280,34 @@ export class PaymentsService {
         if (updateError) {
             this.logger.error(`Failed to approve payment ${id}: ${updateError.message}`);
             throw new BadRequestException('Failed to approve payment');
+        }
+
+        // --- POST-APPROVAL: update usage + balance ---
+        if (payment.from_account_id) {
+            // Increment daily limit usage
+            const { data: dailyLimit } = await client
+                .from('account_limits')
+                .select('id, current_usage')
+                .eq('account_id', payment.from_account_id)
+                .eq('limit_type', 'daily')
+                .single();
+
+            if (dailyLimit) {
+                const newUsage = Number(dailyLimit.current_usage) + convertedAmount;
+                await client
+                    .from('account_limits')
+                    .update({ current_usage: newUsage })
+                    .eq('id', dailyLimit.id);
+            }
+
+            // Deduct balance from source account
+            if (sourceAccount) {
+                const newBalance = Number(sourceAccount.balance) - convertedAmount;
+                await client
+                    .from('accounts')
+                    .update({ balance: newBalance })
+                    .eq('id', sourceAccount.id);
+            }
         }
 
         // Insert action record
