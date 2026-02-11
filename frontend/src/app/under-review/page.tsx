@@ -1,55 +1,69 @@
 import Link from 'next/link';
-import { Clock, LogOut } from 'lucide-react';
-
+import { Loader2, ArrowLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { logoutAction } from '@/lib/auth/actions';
 
 export default function UnderReviewPage() {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[var(--gray-50)] dark:bg-[var(--dark-bg)]">
-            <div className="w-full max-w-md px-4">
-                <Card className="shadow-lg border-[var(--gray-200)] dark:border-[var(--dark-border)]">
-                    <CardHeader className="text-center pb-2">
-                        <div className="mx-auto w-16 h-16 rounded-full bg-[var(--warning-50)] dark:bg-[var(--warning-500)]/10 flex items-center justify-center mb-4">
-                            <Clock className="w-8 h-8 text-[var(--warning-600)]" />
-                        </div>
-                        <CardTitle className="text-2xl font-semibold tracking-tight">
-                            Application Under Review
-                        </CardTitle>
-                    </CardHeader>
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+            <div className="w-full max-w-md">
 
-                    <CardContent className="text-center space-y-4">
-                        <p className="text-[var(--gray-600)] dark:text-[var(--dark-muted)]">
-                            Thank you for signing up for Vault Treasury access.
+                {/* Status Card */}
+                <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden relative">
+                    {/* Status Strip */}
+                    <div className="absolute top-0 left-0 w-full h-1 bg-amber-400" />
+
+                    <div className="p-8">
+                        {/* Header */}
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-10 w-10 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center">
+                                <Loader2 className="h-5 w-5 text-amber-600 animate-spin" />
+                            </div>
+                            <div>
+                                <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+                                    Clearance Pending
+                                </h1>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    Queue Status: Active
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Message */}
+                        <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                            Your identity has been verified, but your account requires final authorization from a Treasury Administrator.
                         </p>
-                        <p className="text-[var(--gray-600)] dark:text-[var(--dark-muted)]">
-                            Your request is currently being reviewed by a Treasury Administrator.
-                            You will be able to access the system once your account has been approved.
-                        </p>
-                        <div className="pt-4 px-6 py-4 rounded-lg bg-[var(--gray-100)] dark:bg-[var(--dark-card)]">
-                            <p className="text-sm text-[var(--gray-500)]">
-                                If you believe this is taking too long, please contact your system administrator.
+
+                        {/* ETA Box (Cleaned) */}
+                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 mb-8 flex items-center gap-3">
+                            <Clock className="h-4 w-4 text-slate-400" />
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                                    Estimated Wait
+                                </span>
+                                <span className="text-xs font-mono font-medium text-slate-900">
+                                    ~24 Hours
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="space-y-4">
+                            <form action={logoutAction} className="w-full">
+                                <Button
+                                    type="submit"
+                                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium h-10 shadow-sm"
+                                >
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
+                                    Return to Login
+                                </Button>
+                            </form>
+                            <p className="text-center text-[10px] text-slate-400">
+                                Need urgent access? Contact your systems administrator.
                             </p>
                         </div>
-                    </CardContent>
-
-                    <CardFooter className="flex flex-col gap-3">
-                        <form action={logoutAction}>
-                            <Button
-                                type="submit"
-                                variant="outline"
-                                className="w-full"
-                            >
-                                <LogOut className="w-4 h-4 mr-2" />
-                                Sign Out
-                            </Button>
-                        </form>
-                        <Link href="/login" className="text-sm text-[var(--primary-600)] hover:text-[var(--primary-700)] transition-colors">
-                            Return to Login
-                        </Link>
-                    </CardFooter>
-                </Card>
+                    </div>
+                </div>
             </div>
         </div>
     );

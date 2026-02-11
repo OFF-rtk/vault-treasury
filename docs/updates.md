@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-02-11 — Patch: Payment Sort Filter, Liquidity Ticker & Currency Fix
+
+**Features Added:**
+- **Payments "Recently Actioned" sort** — new `sortBy` query parameter. When set to `resolved_at`, queries `payment_actions` table (using indexed `performed_at DESC`) to surface recently approved/rejected payments first. Pending payments (no action rows) sink to the bottom. Frontend adds a "Sort Order" dropdown with "Newest First" and "Recently Actioned" options.
+- **Liquidity Overview ticker** on Accounts page — 3-column Swiss Finance–style widget showing:
+  - **Global Cash Position** (sum of internal account balances)
+  - **Pending Outflows** (sum of pending payment amounts, converted to USD) with a visual risk bar (amber < 50%, red > 50%)
+  - **Projected Close** (liquidity − exposure, green if positive, red if negative)
+- **Backend `GET /accounts/stats`** — new endpoint returning `{ totalLiquidity, pendingExposure }` via two aggregate queries in `AccountsService`
+
+**Bug Fixed:**
+- **Pending exposure currency conversion** — pending payment amounts were summed raw without currency conversion, making 50,000 INR display as $50,000 USD. Fixed by fetching `currency` alongside `amount` and applying static exchange rates (same `EXCHANGE_RATES_TO_USD` map from payments service) before summing.
+
+**Files Modified:**
+
+| File | Change |
+|------|--------|
+| `backend/src/payments/dto/payment.dto.ts` | Added `sortBy` field with `@IsIn(['created_at', 'resolved_at'])` |
+| `backend/src/payments/payments.service.ts` | Added `findAllByRecentAction()` — queries `payment_actions`, deduplicates, orders, paginates |
+| `backend/src/accounts/accounts.service.ts` | Added `EXCHANGE_RATES_TO_USD`, `getLiquidityStats()` with currency conversion |
+| `backend/src/accounts/accounts.controller.ts` | Added `GET /stats` route (before `:id`) |
+| `frontend/src/components/payments/PaymentFilters.tsx` | Added Sort dropdown with `ArrowUpDown` icon |
+| `frontend/src/components/accounts/LiquidityOverview.tsx` | **[NEW]** 3-column liquidity widget component |
+| `frontend/src/lib/actions/payments.ts` | Added `sortBy` to `PaymentFilters` + query propagation |
+| `frontend/src/lib/actions/accounts.ts` | Added `fetchLiquidityStats()` server action |
+| `frontend/src/app/(protected)/payments/page.tsx` | Wired `sortBy` through searchParams |
+| `frontend/src/app/(protected)/accounts/page.tsx` | Integrated `LiquidityOverview` with parallel data fetching |
+
+---
+
 ## 2026-02-11 — Patch: Limit Enforcement & Currency Conversion
 
 **Bug Fixed:**

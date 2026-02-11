@@ -1,8 +1,9 @@
 import { Controller, Get, Post, Param, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
-import { AdminService, PendingUser } from './admin.service';
+import { AdminService, PendingUser, TreasuryUser } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { SentinelGuard } from '../sentinel/sentinel.guard';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -15,7 +16,13 @@ export class AdminController {
         return this.adminService.getPendingUsers();
     }
 
+    @Get('users')
+    async getAllUsers(): Promise<TreasuryUser[]> {
+        return this.adminService.getAllUsers();
+    }
+
     @Post('users/:id/approve')
+    @UseGuards(SentinelGuard)
     @HttpCode(HttpStatus.OK)
     async approveUser(
         @Param('id') userId: string,
@@ -25,6 +32,7 @@ export class AdminController {
     }
 
     @Post('users/:id/reject')
+    @UseGuards(SentinelGuard)
     @HttpCode(HttpStatus.OK)
     async rejectUser(
         @Param('id') userId: string,
@@ -32,4 +40,15 @@ export class AdminController {
     ): Promise<{ message: string }> {
         return this.adminService.rejectUser(userId, req.user.userId);
     }
+
+    @Post('users/:id/deactivate')
+    @UseGuards(SentinelGuard)
+    @HttpCode(HttpStatus.OK)
+    async deactivateUser(
+        @Param('id') userId: string,
+        @Request() req,
+    ): Promise<{ message: string }> {
+        return this.adminService.deactivateUser(userId, req.user.userId);
+    }
 }
+

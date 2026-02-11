@@ -1,44 +1,68 @@
-import Link from 'next/link';
-import { ShieldX, ArrowRight } from 'lucide-react';
-
+import { ShieldAlert, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { logoutAction } from '@/lib/auth/actions';
 
 export default function TerminatedPage() {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[var(--gray-50)] dark:bg-[var(--dark-bg)]">
-            <div className="w-full max-w-md px-4">
-                <Card className="shadow-lg border-[var(--danger-200)] dark:border-[var(--danger-700)]">
-                    <CardHeader className="text-center pb-2">
-                        <div className="mx-auto w-16 h-16 rounded-full bg-[var(--danger-50)] dark:bg-[var(--danger-500)]/10 flex items-center justify-center mb-4">
-                            <ShieldX className="w-8 h-8 text-[var(--danger-600)]" />
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 relative overflow-hidden">
+
+            {/* Background Pattern */}
+            <div
+                className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                style={{
+                    backgroundImage: 'radial-gradient(#0f172a 1px, transparent 1px)',
+                    backgroundSize: '24px 24px'
+                }}
+            />
+
+            <div className="w-full max-w-md relative z-10">
+                <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+
+                    {/* Header: High Contrast Error */}
+                    <div className="bg-red-50 border-b border-red-100 p-6 flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0 border border-red-200">
+                            <ShieldAlert className="h-5 w-5 text-red-700" />
                         </div>
-                        <CardTitle className="text-2xl font-semibold tracking-tight text-[var(--danger-700)] dark:text-[var(--danger-500)]">
-                            Session Terminated
-                        </CardTitle>
-                    </CardHeader>
+                        <div>
+                            <h1 className="text-lg font-bold text-red-950 tracking-tight">
+                                Session Terminated
+                            </h1>
+                            <p className="text-[10px] font-mono font-bold text-red-800 uppercase tracking-widest mt-0.5">
+                                ERR_ACCESS_REVOKED
+                            </p>
+                        </div>
+                    </div>
 
-                    <CardContent className="text-center space-y-4">
-                        <p className="text-[var(--gray-600)] dark:text-[var(--dark-muted)]">
-                            Your session has been terminated due to security concerns.
-                        </p>
-                        <p className="text-[var(--gray-600)] dark:text-[var(--dark-muted)]">
-                            If you believe this is an error, please contact your administrator.
-                        </p>
-                    </CardContent>
+                    <div className="p-8">
+                        {/* Explanation */}
+                        <div className="mb-8">
+                            <p className="text-sm text-slate-700 font-medium mb-2">
+                                Access Denied
+                            </p>
+                            <p className="text-sm text-slate-500 leading-relaxed">
+                                Your session has been forcibly closed due to a security policy violation or administrative revocation. All active tokens have been invalidated.
+                            </p>
+                        </div>
 
-                    <CardFooter>
-                        <form action={logoutAction} className="w-full">
-                            <Button type="submit" className="w-full">
-                                <span className="flex items-center gap-2">
-                                    Return to Login
-                                    <ArrowRight className="w-4 h-4" />
-                                </span>
+                        {/* Action */}
+                        <form action={logoutAction}>
+                            <Button
+                                type="submit"
+                                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium h-10 shadow-sm"
+                            >
+                                <LogOut className="w-4 h-4 mr-2" />
+                                Acknowledge & Sign Out
                             </Button>
                         </form>
-                    </CardFooter>
-                </Card>
+                    </div>
+
+                    {/* Static Footer */}
+                    <div className="bg-slate-50 border-t border-slate-100 p-3 text-center">
+                        <p className="text-[10px] text-slate-400 font-mono uppercase tracking-widest">
+                            Vault Security Protocol
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     );
