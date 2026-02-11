@@ -25,6 +25,11 @@ export class AccountsController {
         return this.accountsService.findAll(filters);
     }
 
+    @Get('stats')
+    async getLiquidityStats() {
+        return this.accountsService.getLiquidityStats();
+    }
+
     @Get(':id')
     async findOne(@Param('id') id: string) {
         return this.accountsService.findOne(id);

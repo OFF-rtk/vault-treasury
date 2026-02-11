@@ -2,11 +2,72 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { SupabaseService } from '../database/supabase.service';
 import { AccountFiltersDto, UpdateLimitsDto } from './dto/account.dto';
 
+/**
+ * Static exchange rates to USD for pending exposure conversion.
+ * Mirrors the rates in payments.service.ts.
+ */
+const EXCHANGE_RATES_TO_USD: Record<string, number> = {
+    USD: 1.0,
+    EUR: 1.08,
+    GBP: 1.27,
+    INR: 0.012,
+    JPY: 0.0067,
+    CAD: 0.74,
+    AUD: 0.65,
+    CHF: 1.13,
+    SGD: 0.75,
+    AED: 0.27,
+};
+
 @Injectable()
 export class AccountsService {
     private readonly logger = new Logger(AccountsService.name);
 
     constructor(private readonly supabase: SupabaseService) { }
+
+    /**
+     * Aggregate liquidity stats: total internal balances + pending outflow exposure.
+     * Pending amounts are converted to USD using static exchange rates.
+     */
+    async getLiquidityStats() {
+        const client = this.supabase.getClient();
+
+        // Total internal account balances (all USD)
+        const { data: accounts, error: accError } = await client
+            .from('accounts')
+            .select('balance')
+            .eq('account_type', 'internal')
+            .eq('is_active', true);
+
+        if (accError) {
+            this.logger.error(`Failed to fetch account balances: ${accError.message}`);
+            throw new BadRequestException('Failed to fetch liquidity stats');
+        }
+
+        const totalLiquidity = (accounts || []).reduce(
+            (sum: number, a: any) => sum + Number(a.balance), 0,
+        );
+
+        // Sum of pending payment amounts (converted to USD)
+        const { data: payments, error: payError } = await client
+            .from('payments')
+            .select('amount, currency')
+            .eq('status', 'pending');
+
+        if (payError) {
+            this.logger.error(`Failed to fetch pending payments: ${payError.message}`);
+            throw new BadRequestException('Failed to fetch liquidity stats');
+        }
+
+        const pendingExposure = (payments || []).reduce(
+            (sum: number, p: any) => {
+                const rate = EXCHANGE_RATES_TO_USD[p.currency] || 1.0;
+                return sum + (Number(p.amount) * rate);
+            }, 0,
+        );
+
+        return { totalLiquidity, pendingExposure };
+    }
 
     /**
      * List internal accounts with their limits.

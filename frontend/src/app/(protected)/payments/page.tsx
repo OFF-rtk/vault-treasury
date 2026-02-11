@@ -10,6 +10,7 @@ interface PageProps {
         search?: string;
         dateFrom?: string;
         dateTo?: string;
+        sortBy?: string;
         page?: string;
     }>;
 }
@@ -23,6 +24,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
         search: params.search,
         dateFrom: params.dateFrom,
         dateTo: params.dateTo,
+        sortBy: params.sortBy,
         page: params.page ? parseInt(params.page) : 1,
     });
 

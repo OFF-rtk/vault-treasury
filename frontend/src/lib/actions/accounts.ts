@@ -81,3 +81,14 @@ export async function updateAccountLimits(
     revalidatePath(`/accounts/${id}`);
     return result;
 }
+
+// --- Liquidity Stats ---
+
+export interface LiquidityStats {
+    totalLiquidity: number;
+    pendingExposure: number;
+}
+
+export async function fetchLiquidityStats(): Promise<LiquidityStats> {
+    return smartGet<LiquidityStats>('/api/accounts/stats');
+}

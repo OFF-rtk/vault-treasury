@@ -50,6 +50,11 @@ export class PaymentsService {
         const limit = filters.limit || 20;
         const offset = (page - 1) * limit;
 
+        // "Recently Actioned" sort: order by latest action from payment_actions
+        if (filters.sortBy === 'resolved_at') {
+            return this.findAllByRecentAction(client, filters, page, limit, offset);
+        }
+
         let query = client
             .from('payments')
             .select(`
@@ -94,6 +99,101 @@ export class PaymentsService {
             page,
             limit,
             totalPages: Math.ceil((count || 0) / limit),
+        };
+    }
+
+    /**
+     * Fetch payments ordered by most recent action from payment_actions table.
+     * Actions like 'approved', 'rejected' surface first; pending (no action) sink to bottom.
+     */
+    private async findAllByRecentAction(
+        client: any,
+        filters: PaymentFiltersDto,
+        page: number,
+        limit: number,
+        offset: number,
+    ) {
+        // 1. Get recent actions (excluding 'created') ordered by performed_at DESC
+        const { data: actions, error: actionsError } = await client
+            .from('payment_actions')
+            .select('payment_id, performed_at')
+            .in('action_type', ['approved', 'rejected', 'challenge_passed', 'challenge_failed'])
+            .order('performed_at', { ascending: false });
+
+        if (actionsError) {
+            this.logger.error(`Failed to fetch payment actions: ${actionsError.message}`);
+            throw new BadRequestException('Failed to fetch payment actions');
+        }
+
+        // 2. Deduplicate: keep only the latest action per payment
+        const seen = new Set<string>();
+        const orderedPaymentIds: string[] = [];
+        for (const action of (actions || [])) {
+            if (!seen.has(action.payment_id)) {
+                seen.add(action.payment_id);
+                orderedPaymentIds.push(action.payment_id);
+            }
+        }
+
+        // 3. Fetch ALL payment IDs (for total count and to append un-actioned ones)
+        let countQuery = client
+            .from('payments')
+            .select('id', { count: 'exact', head: false });
+
+        if (filters.status) countQuery = countQuery.eq('status', filters.status);
+        if (filters.priority) countQuery = countQuery.eq('priority', filters.priority);
+        if (filters.dateFrom) countQuery = countQuery.gte('created_at', filters.dateFrom);
+        if (filters.dateTo) countQuery = countQuery.lte('created_at', filters.dateTo);
+        if (filters.search) countQuery = countQuery.ilike('reference_number', `%${filters.search}%`);
+
+        const { data: allIds, count: totalCount, error: countError } = await countQuery;
+
+        if (countError) {
+            this.logger.error(`Failed to count payments: ${countError.message}`);
+            throw new BadRequestException('Failed to fetch payments');
+        }
+
+        // 4. Build final ordered ID list: actioned first, then pending (by created_at desc)
+        const allPaymentIds = new Set((allIds || []).map((p: any) => p.id));
+        const filteredActionedIds = orderedPaymentIds.filter(id => allPaymentIds.has(id));
+        const unactionedIds = (allIds || [])
+            .map((p: any) => p.id)
+            .filter((id: string) => !seen.has(id));
+
+        const finalOrderedIds = [...filteredActionedIds, ...unactionedIds];
+        const pageIds = finalOrderedIds.slice(offset, offset + limit);
+
+        if (pageIds.length === 0) {
+            return { payments: [], total: totalCount || 0, page, limit, totalPages: Math.ceil((totalCount || 0) / limit) };
+        }
+
+        // 5. Fetch full payment data for this page
+        const { data: payments, error: paymentsError } = await client
+            .from('payments')
+            .select(`
+                *,
+                from_account:accounts!payments_from_account_id_fkey(id, account_name, account_number, bank_name, account_type, balance),
+                to_account:accounts!payments_to_account_id_fkey(id, account_name, account_number, bank_name, account_type)
+            `)
+            .in('id', pageIds);
+
+        if (paymentsError) {
+            this.logger.error(`Failed to fetch payments: ${paymentsError.message}`);
+            throw new BadRequestException('Failed to fetch payments');
+        }
+
+        // 6. Re-sort to match the ordered IDs (Supabase .in() doesn't preserve order)
+        const paymentMap = new Map((payments || []).map((p: any) => [p.id, p]));
+        const sortedPayments = pageIds
+            .map(id => paymentMap.get(id))
+            .filter(Boolean);
+
+        return {
+            payments: sortedPayments,
+            total: totalCount || 0,
+            page,
+            limit,
+            totalPages: Math.ceil((totalCount || 0) / limit),
         };
     }
 

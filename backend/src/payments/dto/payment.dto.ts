@@ -25,6 +25,10 @@ export class PaymentFiltersDto {
     search?: string;
 
     @IsOptional()
+    @IsIn(['created_at', 'resolved_at'])
+    sortBy?: string;
+
+    @IsOptional()
     @Type(() => Number)
     @IsInt()
     @Min(1)

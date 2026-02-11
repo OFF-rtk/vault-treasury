@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, ArrowUpDown } from "lucide-react";
 
 const ALL_PLACEHOLDER = "__all__";
 
@@ -23,6 +23,7 @@ export function PaymentFilters() {
     const currentStatus = searchParams.get("status") || "";
     const currentPriority = searchParams.get("priority") || "";
     const currentSearch = searchParams.get("search") || "";
+    const currentSort = searchParams.get("sortBy") || "";
 
     const updateParam = useCallback(
         (key: string, value: string) => {
@@ -43,7 +44,7 @@ export function PaymentFilters() {
         router.push(pathname);
     }, [router, pathname]);
 
-    const hasFilters = currentStatus || currentPriority || currentSearch;
+    const hasFilters = currentStatus || currentPriority || currentSearch || currentSort;
 
     return (
         <div className="flex items-center gap-3 flex-wrap">
@@ -77,6 +78,21 @@ export function PaymentFilters() {
                     <SelectItem value="normal">Normal</SelectItem>
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+            </Select>
+
+            {/* Sort */}
+            <Select
+                value={currentSort || ALL_PLACEHOLDER}
+                onValueChange={(v) => updateParam("sortBy", v)}
+            >
+                <SelectTrigger className="w-[180px]">
+                    <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
+                    <SelectValue placeholder="Sort Order" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value={ALL_PLACEHOLDER}>Newest First</SelectItem>
+                    <SelectItem value="resolved_at">Recently Actioned</SelectItem>
                 </SelectContent>
             </Select>
 
