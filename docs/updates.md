@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-02-11 — Bugfix: Admin Data Disappearing After Re-login
+
+**Bug**: Admin pages (`/admin/signups`, `/admin/users`) showed all data on first backend start, but after any user login the data disappeared — only the logged-in user's own row was visible.
+
+**Root Cause**: `AuthService.login()` called `client.auth.signInWithPassword()` on the shared singleton `SupabaseClient`. This mutated the client's internal auth context from service-role to user-scoped, causing all subsequent queries (admin, payments, accounts) to be filtered by Supabase RLS policies to only that user's rows.
+
+**Fix**: Added a second, dedicated `serviceRoleClient` to `SupabaseService` that is never contaminated by login. `AdminService` now calls `getServiceRoleClient()` instead of `getClient()`.
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Shared client | Service-role key, but mutated by login | User-scoped (intentional — treasurers only see own data via RLS) |
+| Admin client | Same shared client | Dedicated `serviceRoleClient` — always bypasses RLS |
+| `admin` getter | `this.supabase.auth.admin` | `this.serviceRoleClient.auth.admin` |
+
+**Files Modified:**
+
+| File | Change |
+|------|--------|
+| `backend/src/database/supabase.service.ts` | Added `serviceRoleClient` + `getServiceRoleClient()` method |
+| `backend/src/admin/admin.service.ts` | All methods switched from `getClient()` → `getServiceRoleClient()` |
+
+---
+
 ## 2026-02-11 — Patch: Payment Sort Filter, Liquidity Ticker & Currency Fix
 
 **Features Added:**

@@ -27,7 +27,7 @@ export class AdminService {
     constructor(private readonly supabase: SupabaseService) { }
 
     async getPendingUsers(): Promise<PendingUser[]> {
-        const client = this.supabase.getClient();
+        const client = this.supabase.getServiceRoleClient();
 
         const { data, error } = await client
             .from('treasury_profiles')
@@ -63,7 +63,7 @@ export class AdminService {
      * via supabase.auth.admin.listUsers() (auth.users is protected).
      */
     async getAllUsers(): Promise<TreasuryUser[]> {
-        const client = this.supabase.getClient();
+        const client = this.supabase.getServiceRoleClient();
 
         // 1. Fetch profiles with role from public.users
         const { data: profiles, error: profileError } = await client
@@ -101,7 +101,7 @@ export class AdminService {
     }
 
     async approveUser(userId: string, adminUserId: string): Promise<{ message: string }> {
-        const client = this.supabase.getClient();
+        const client = this.supabase.getServiceRoleClient();
 
         // Check if user exists and is pending
         const { data: profile, error: fetchError } = await client
@@ -133,7 +133,7 @@ export class AdminService {
     }
 
     async rejectUser(userId: string, adminUserId: string): Promise<{ message: string }> {
-        const client = this.supabase.getClient();
+        const client = this.supabase.getServiceRoleClient();
 
         // Update status to deactivated
         const { error: updateError } = await client
@@ -159,7 +159,7 @@ export class AdminService {
             throw new BadRequestException('Cannot deactivate your own account');
         }
 
-        const client = this.supabase.getClient();
+        const client = this.supabase.getServiceRoleClient();
 
         // Check user exists and is active
         const { data: profile, error: fetchError } = await client
