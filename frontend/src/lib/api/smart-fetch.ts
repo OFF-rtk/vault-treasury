@@ -4,23 +4,23 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 const COOKIE_NAME = 'vault_session';
-
-interface SmartFetchOptions extends RequestInit {
-    /** If true, will not throw on non-ok responses, returns the response as-is */
-    rawResponse?: boolean;
-}
+const SENTINEL_COOKIE = 'sentinel_session';
+const DEVICE_COOKIE = 'sentinel_device_id';
 
 /**
  * SmartFetch — Server-side API client with session management.
  *
  * Handles:
  * - Auth headers from cookie
- * - 428 Challenge Required → stub for Module 5
- * - 401 + X-Session-Terminated → will trigger redirect
+ * - X-Sentinel-Session + X-Device-Id header forwarding
+ * - 428 Challenge Required → throws CHALLENGE_REQUIRED:{text}
+ * - 401 + X-Session-Terminated → redirect to /terminated
  */
 async function getAuthHeaders(): Promise<Record<string, string>> {
     const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
+    const sentinelSession = cookieStore.get(SENTINEL_COOKIE)?.value;
+    const deviceId = cookieStore.get(DEVICE_COOKIE)?.value;
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -30,7 +30,36 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
+    if (sentinelSession) {
+        headers['X-Sentinel-Session'] = sentinelSession;
+    }
+
+    if (deviceId) {
+        headers['X-Device-Id'] = deviceId;
+    }
+
     return headers;
+}
+
+async function handleErrorResponse(response: Response): Promise<never> {
+    // 428 Challenge Required → parse challenge_text
+    if (response.status === 428) {
+        const body = await response.json().catch(() => ({}));
+        const text = body.challenge_text || 'Please verify your identity';
+        throw new Error(`CHALLENGE_REQUIRED:${text}`);
+    }
+
+    // 401 → check for session termination
+    if (response.status === 401) {
+        const terminated = response.headers.get('X-Session-Terminated');
+        if (terminated === 'true') {
+            redirect('/terminated');
+        }
+        redirect('/login');
+    }
+
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.message || `Request failed: ${response.status}`);
 }
 
 export async function smartGet<T = any>(path: string): Promise<T> {
@@ -43,18 +72,7 @@ export async function smartGet<T = any>(path: string): Promise<T> {
     });
 
     if (!response.ok) {
-        // Handle 428 Challenge Required — stub for Module 5
-        if (response.status === 428) {
-            throw new Error('CHALLENGE_REQUIRED');
-        }
-
-        // Handle 401 — redirect to login (prevents infinite re-render loop)
-        if (response.status === 401) {
-            redirect('/login');
-        }
-
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.message || `Request failed: ${response.status}`);
+        await handleErrorResponse(response);
     }
 
     return response.json();
@@ -71,17 +89,7 @@ export async function smartPost<T = any>(path: string, body?: any): Promise<T> {
     });
 
     if (!response.ok) {
-        if (response.status === 428) {
-            throw new Error('CHALLENGE_REQUIRED');
-        }
-
-        // Handle 401 — redirect to login
-        if (response.status === 401) {
-            redirect('/login');
-        }
-
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || `Request failed: ${response.status}`);
+        await handleErrorResponse(response);
     }
 
     return response.json();
@@ -98,16 +106,7 @@ export async function smartPatch<T = any>(path: string, body?: any): Promise<T> 
     });
 
     if (!response.ok) {
-        if (response.status === 428) {
-            throw new Error('CHALLENGE_REQUIRED');
-        }
-
-        if (response.status === 401) {
-            redirect('/login');
-        }
-
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || `Request failed: ${response.status}`);
+        await handleErrorResponse(response);
     }
 
     return response.json();

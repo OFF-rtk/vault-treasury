@@ -2,6 +2,7 @@ import { ReactNode, Suspense } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { SidebarSkeleton } from '@/components/layout/SidebarSkeleton';
 import { requireAuth } from '@/lib/auth/actions';
+import { SentinelWrapper } from './SentinelWrapper';
 
 /**
  * Async server component that fetches user data.
@@ -22,10 +23,12 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
                 <SidebarWrapper />
             </Suspense>
 
-            {/* 3. Main Content Area */}
+            {/* 3. Main Content Area with Sentinel + Challenge wrappers */}
             <main className="flex-1 ml-64">
                 <div className="container mx-auto max-w-7xl px-8 py-10">
-                    {children}
+                    <SentinelWrapper>
+                        {children}
+                    </SentinelWrapper>
                 </div>
             </main>
         </div>

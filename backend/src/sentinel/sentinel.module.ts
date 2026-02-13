@@ -1,8 +1,13 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { SentinelService } from './sentinel.service';
+import { SentinelController } from './sentinel.controller';
+import { SentinelGuard } from './sentinel.guard';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-    providers: [SentinelService],
-    exports: [SentinelService],
+    imports: [forwardRef(() => AuthModule)],
+    controllers: [SentinelController],
+    providers: [SentinelService, SentinelGuard],
+    exports: [SentinelService, SentinelGuard],
 })
 export class SentinelModule { }

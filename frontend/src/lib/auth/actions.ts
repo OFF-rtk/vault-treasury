@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 const COOKIE_NAME = 'vault_session';
+const DEVICE_COOKIE = 'sentinel_device_id';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 interface LoginResult {
@@ -50,7 +51,7 @@ export async function loginAction(email: string, password: string): Promise<Logi
             return { success: true, redirectTo: '/under-review' };
         }
 
-        return { success: true, redirectTo: '/payments' };
+        return { success: true, redirectTo: '/verify' };
     } catch (error) {
         return { success: false, error: 'Connection failed. Please try again.' };
     }
@@ -125,6 +126,24 @@ export async function requireAuth(): Promise<UserProfile> {
         redirect('/terminated');
     }
 
+    // Check MFA status — redirect to /verify if behavioral verification expired
+    try {
+        const mfaResponse = await fetch(`${process.env.VAULT_API_URL}/api/auth/mfa-status`, {
+            headers: { 'Authorization': `Bearer ${session.token}` },
+            cache: 'no-store',
+        });
+        if (mfaResponse.ok) {
+            const mfaData = await mfaResponse.json();
+            if (mfaData.status !== 'verified') {
+                redirect('/verify');
+            }
+        }
+    } catch (e: any) {
+        // If this throws a redirect, let it propagate
+        if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e;
+        // Otherwise ignore — don't block access for MFA check failures
+    }
+
     return session.user;
 }
 
@@ -136,4 +155,63 @@ export async function requireAdmin(): Promise<UserProfile> {
     }
 
     return user;
+}
+
+// Add this to lib/auth/actions.ts
+
+export async function verifyBehavioral(sessionId: string): Promise<{ success: boolean; error?: string; challenge?: boolean; challengeText?: string }> {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(COOKIE_NAME)?.value;
+
+    if (!token) {
+        return { success: false, error: 'Session expired. Please log in again.' };
+    }
+
+    try {
+        // Read device ID from cookie (same as smartFetch does)
+        const deviceId = cookieStore.get(DEVICE_COOKIE)?.value;
+
+        const headers: Record<string, string> = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'X-Sentinel-Session': sessionId,
+        };
+
+        if (deviceId) {
+            headers['X-Device-Id'] = deviceId;
+        }
+
+        // Call the NestJS endpoint we just planned
+        const response = await fetch(`${process.env.VAULT_API_URL}/api/auth/verify`, {
+            method: 'POST',
+            headers,
+        });
+
+        if (!response.ok) {
+            // If the backend returns 401/403 (BLOCK), we fail here
+            return { success: false, error: 'Behavioral verification failed.' };
+        }
+
+        const data = await response.json();
+
+        if (data.verified) {
+            return { success: true };
+        }
+
+        // CHALLENGE response — sentinel-ml flagged risk, re-prompt with new text
+        if (data.challenge) {
+            return {
+                success: false,
+                challenge: true,
+                challengeText: data.challengeText,
+                error: 'Additional verification required. Please type the new sentence.',
+            };
+        }
+
+        return { success: false, error: 'Verification declined.' };
+
+    } catch (error) {
+        console.error('Behavioral verification error:', error);
+        return { success: false, error: 'Connection failed during verification.' };
+    }
 }

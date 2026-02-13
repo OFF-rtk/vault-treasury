@@ -21,6 +21,7 @@ import { approvePayment, rejectPayment } from "@/lib/actions/payments";
 import type { PaymentWithActions, PaymentAction } from "@/lib/actions/payments";
 import { cn } from "@/lib/utils";
 import { ApproveDialog, RejectDialog } from "./PaymentDialogs";
+import { useChallengeAction } from "@/hooks/useChallengeAction";
 
 // --- Helpers ---
 function formatAmount(amount: number, currency: string = "USD"): string {
@@ -76,11 +77,24 @@ export function PaymentDetailClient({ payment }: { payment: PaymentWithActions }
         minimumFractionDigits: 2,
     }).format(payment.amount);
 
+    // Challenge-aware actions
+    const { execute: challengeApprove } = useChallengeAction({
+        action: approvePayment,
+        onSuccess: () => router.refresh(),
+        onError: (err) => console.error('Approve failed:', err),
+    });
+
+    const { execute: challengeReject } = useChallengeAction({
+        action: rejectPayment,
+        onSuccess: () => router.refresh(),
+        onError: (err) => console.error('Reject failed:', err),
+    });
+
     const handleApproveConfirm = () => {
         setApproveOpen(false);
         startTransition(async () => {
             try {
-                await approvePayment(payment.id);
+                await challengeApprove(payment.id);
                 router.refresh();
             } catch (error) {
                 console.error("Failed to approve:", error);
@@ -92,7 +106,7 @@ export function PaymentDetailClient({ payment }: { payment: PaymentWithActions }
         setRejectOpen(false);
         startTransition(async () => {
             try {
-                await rejectPayment(payment.id, reason);
+                await challengeReject(payment.id, reason);
                 router.refresh();
             } catch (error) {
                 console.error("Failed to reject:", error);

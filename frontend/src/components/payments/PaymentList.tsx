@@ -9,6 +9,7 @@ import { approvePayment, rejectPayment } from "@/lib/actions/payments";
 import type { Payment } from "@/lib/actions/payments";
 import { motion, AnimatePresence } from "framer-motion";
 import { ApproveDialog, RejectDialog } from "./PaymentDialogs";
+import { useChallengeAction } from "@/hooks/useChallengeAction";
 
 interface PaymentListProps {
     payments: Payment[];
@@ -37,6 +38,19 @@ export function PaymentList({ payments, total, page, totalPages }: PaymentListPr
     const [rejectTarget, setRejectTarget] = useState<string | null>(null);
     const [isActing, setIsActing] = useState(false);
 
+    // Challenge-aware actions
+    const { execute: challengeApprove } = useChallengeAction({
+        action: approvePayment,
+        onSuccess: () => router.refresh(),
+        onError: (err) => { console.error('Approve failed:', err); router.refresh(); },
+    });
+
+    const { execute: challengeReject } = useChallengeAction({
+        action: rejectPayment,
+        onSuccess: () => router.refresh(),
+        onError: (err) => { console.error('Reject failed:', err); router.refresh(); },
+    });
+
     // --- Actions ---
     const handleApproveClick = (id: string) => {
         setApproveTarget(id);
@@ -51,7 +65,7 @@ export function PaymentList({ payments, total, page, totalPages }: PaymentListPr
         startTransition(async () => {
             setOptimisticPayments({ id: targetId, status: "approved" });
             try {
-                await approvePayment(targetId);
+                await challengeApprove(targetId);
             } catch (error) {
                 console.error("Failed to approve:", error);
                 router.refresh();
@@ -73,7 +87,7 @@ export function PaymentList({ payments, total, page, totalPages }: PaymentListPr
         startTransition(async () => {
             setOptimisticPayments({ id: targetId, status: "rejected" });
             try {
-                await rejectPayment(targetId, reason);
+                await challengeReject(targetId, reason);
             } catch (error) {
                 console.error("Failed to reject:", error);
                 router.refresh();

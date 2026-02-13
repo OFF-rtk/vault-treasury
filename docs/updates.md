@@ -4,6 +4,56 @@
 
 ---
 
+## 2026-02-12 — Module 5: Sentinel Integration & Behavioral 2FA (Complete)
+
+**Completed:**
+- Full Sentinel ML integration replacing the mock `SentinelGuard` with real behavioral biometric analysis
+- Two-step authentication: password login (`/login`) → behavioral typing enrollment (`/verify`) → dashboard
+- In-session challenge modals for gated actions (payments, limits, admin) when Sentinel flags suspicious behavior
+
+**Architecture:**
+
+| Component | Detail |
+|-----------|--------|
+| Auth flow | `/login` (password) → `/verify` (behavioral typing) → `/payments` |
+| MFA state | Redis `client:mfa:{user_id}` — 12h absolute TTL, 30m idle sliding TTL |
+| Session state | Redis `client:sentinel:{session_id}` — user_id, IP, UA, start_time, batch counters |
+| Batch validation | Client-authoritative batch_id, server validates `payload.batch_id > last_accepted` — rejects replays with 409 |
+| Streaming | Keyboard/mouse events buffered 150ms client-side, proxied through NestJS to Sentinel ML |
+| Decision enforcement | ALLOW → proceed, CHALLENGE → 428 with challenge_text, BLOCK → terminate Supabase session + 401 |
+| Fail-safe | Sentinel unreachable → default to CHALLENGE |
+| Circular deps | `AuthModule` ↔ `SentinelModule` resolved via NestJS `forwardRef()` |
+
+**Files Created:**
+
+| File | Purpose |
+|------|---------|
+| `backend/src/database/redis.service.ts` | Redis client — sentinel sessions, batch_id validation, MFA state |
+| `backend/src/sentinel/sentinel.controller.ts` | Streaming proxy endpoints (`POST /sentinel/stream/keyboard`, `/mouse`) |
+| `backend/src/sentinel/dto/stream.dto.ts` | Validation DTOs for keyboard/mouse events |
+| `frontend/src/components/sentinel/SentinelProvider.tsx` | Client-side event capture + `forceFlush()` |
+| `frontend/src/components/sentinel/ChallengeProvider.tsx` | Challenge lifecycle management |
+| `frontend/src/components/sentinel/ChallengeModal.tsx` | In-session verification modal with character highlighting |
+| `frontend/src/hooks/useChallengeAction.ts` | Wraps server actions with challenge retry (flush + 250ms delay) |
+| `frontend/src/app/(auth)/verify/page.tsx` | Behavioral enrollment page (step 2 of auth) |
+| `frontend/src/app/(protected)/SentinelWrapper.tsx` | Client component bridge for protected layout |
+
+**Files Modified:**
+
+| File | Change |
+|------|--------|
+| `backend/src/database/database.module.ts` | Added `RedisService` to providers/exports |
+| `backend/src/sentinel/sentinel.service.ts` | Full Sentinel ML proxy — `streamKeyboard`, `streamMouse`, `evaluate` with Redis session state |
+| `backend/src/sentinel/sentinel.guard.ts` | Real ALLOW/CHALLENGE/BLOCK enforcement replacing mock |
+| `backend/src/sentinel/sentinel.module.ts` | Added controller, guard, `forwardRef(AuthModule)` |
+| `backend/src/auth/auth.controller.ts` | Added `POST /verify` and `GET /mfa-status` endpoints |
+| `backend/src/auth/auth.module.ts` | Added `forwardRef(SentinelModule)` import |
+| `frontend/src/lib/auth/actions.ts` | Login → `/verify` redirect, MFA check in `requireAuth()` |
+| `frontend/src/lib/api/smart-fetch.ts` | `X-Sentinel-Session` header, 428 challenge_text parsing, 401 terminated redirect |
+| `frontend/src/app/(protected)/layout.tsx` | Wrapped children with `SentinelWrapper` |
+
+---
+
 ## 2026-02-11 — Bugfix: Admin Data Disappearing After Re-login
 
 **Bug**: Admin pages (`/admin/signups`, `/admin/users`) showed all data on first backend start, but after any user login the data disappeared — only the logged-in user's own row was visible.
