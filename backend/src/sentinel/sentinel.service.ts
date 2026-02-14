@@ -26,6 +26,20 @@ export const CHALLENGE_TEXTS = [
     'Advanced threat detection systems monitor keystroke dynamics carefully',
     'Every transaction in the treasury system requires proper authorization',
     'Behavioral biometrics provide a seamless layer of invisible security',
+    'Financial systems demand rigorous authentication to protect all assets',
+    'Continuous identity verification ensures only authorized users proceed',
+    'Modern security infrastructure relies on behavioral patterns for trust',
+    'Keystroke timing analysis creates a unique fingerprint for every person',
+    'Treasury operations require multi-factor authentication at every level',
+    'Automated threat detection scans for anomalous user behavior patterns',
+    'Digital identity verification protects sensitive financial transactions',
+    'Real-time behavioral analysis adapts to evolving cybersecurity threats',
+    'Secure access management prevents unauthorized financial system access',
+    'Biometric authentication layers strengthen enterprise security posture',
+    'Typing rhythm analysis detects impersonation attempts in real time now',
+    'Institutional grade security frameworks protect high value transactions',
+    'Anomaly detection systems flag deviations from established user patterns',
+    'Comprehensive security auditing tracks every action within the platform',
 ];
 
 @Injectable()
