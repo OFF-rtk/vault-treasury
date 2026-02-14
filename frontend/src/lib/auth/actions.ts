@@ -215,3 +215,12 @@ export async function verifyBehavioral(sessionId: string): Promise<{ success: bo
         return { success: false, error: 'Connection failed during verification.' };
     }
 }
+
+/**
+ * Returns the current user's role. Used by the /verify page
+ * to determine the correct post-verification redirect target.
+ */
+export async function getUserRole(): Promise<string | null> {
+    const session = await getSession();
+    return session?.user.role ?? null;
+}

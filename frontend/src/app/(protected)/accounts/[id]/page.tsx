@@ -1,6 +1,7 @@
-import { fetchAccount } from "@/lib/actions/accounts";
-import { AccountDetailClient } from "@/components/accounts/AccountDetail";
 import { notFound } from "next/navigation";
+import { fetchAccount, fetchPendingLimitRequests } from "@/lib/actions/accounts";
+import { requireAuth } from "@/lib/auth/actions";
+import { AccountDetailClient } from "@/components/accounts/AccountDetail";
 
 export default async function AccountDetailPage({
     params,
@@ -8,9 +9,24 @@ export default async function AccountDetailPage({
     params: Promise<{ id: string }>;
 }) {
     const { id } = await params;
+
+    const user = await requireAuth();
+    const isAdmin = user.role === 'treasury_admin';
+
     try {
-        const account = await fetchAccount(id);
-        return <AccountDetailClient account={account} />;
+        // Fetch account and (for admins) pending requests in parallel
+        const [account, pendingRequests] = await Promise.all([
+            fetchAccount(id),
+            isAdmin ? fetchPendingLimitRequests(id) : Promise.resolve([]),
+        ]);
+
+        return (
+            <AccountDetailClient
+                account={account}
+                userRole={user.role}
+                pendingRequests={pendingRequests}
+            />
+        );
     } catch {
         notFound();
     }

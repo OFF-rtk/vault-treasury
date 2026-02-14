@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { SentinelProvider, useSentinel } from '@/components/sentinel/SentinelProvider';
-// FIX: Import Server Action statically at the top level
-import { verifyBehavioral } from '@/lib/auth/actions';
+// FIX: Import Server Actions statically at the top level
+import { verifyBehavioral, getUserRole } from '@/lib/auth/actions';
 
 const CHALLENGE_TEXTS = [
     'The quick brown fox jumps over the lazy dog near the riverbank today',
@@ -65,8 +65,10 @@ function VerifyContent() {
 
             if (result.success) {
                 setVerified(true);
-                // Brief success animation then redirect
-                setTimeout(() => router.push('/payments'), 800);
+                // Brief success animation then role-aware redirect
+                const role = await getUserRole();
+                const target = role === 'treasury_admin' ? '/admin/signups' : '/payments';
+                setTimeout(() => router.push(target), 800);
             } else if (result.challenge && result.challengeText) {
                 // Sentinel ML flagged risk — re-prompt with new challenge text
                 setChallengeText(result.challengeText);

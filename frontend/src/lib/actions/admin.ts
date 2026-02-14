@@ -52,3 +52,17 @@ export async function deactivateUser(userId: string): Promise<{ message: string 
     revalidatePath('/admin/users');
     return result;
 }
+
+// --- Limit Request Admin Actions ---
+
+export async function approveLimitRequest(requestId: string): Promise<{ message: string }> {
+    const result = await smartPost<{ message: string }>(`/api/admin/limit-requests/${requestId}/approve`, {});
+    revalidatePath('/accounts');
+    return result;
+}
+
+export async function rejectLimitRequest(requestId: string, reason?: string): Promise<{ message: string }> {
+    const result = await smartPost<{ message: string }>(`/api/admin/limit-requests/${requestId}/reject`, { reason });
+    revalidatePath('/accounts');
+    return result;
+}

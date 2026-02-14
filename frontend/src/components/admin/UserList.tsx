@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Shield, ShieldOff, Mail, Building2, Clock, Crown, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { deactivateUser, type TreasuryUser } from "@/lib/actions/admin";
+import { useChallengeAction } from "@/hooks/useChallengeAction";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -33,16 +34,15 @@ export function UserList({ users }: UserListProps) {
     const router = useRouter();
     const [loadingId, setLoadingId] = useState<string | null>(null);
 
+    const { execute: challengeDeactivate } = useChallengeAction({
+        action: deactivateUser,
+        onSuccess: () => { setLoadingId(null); router.refresh(); },
+        onError: (err) => { setLoadingId(null); console.error('Failed to deactivate user:', err); },
+    });
+
     const handleDeactivate = async (userId: string) => {
         setLoadingId(userId);
-        try {
-            await deactivateUser(userId);
-            router.refresh();
-        } catch (err) {
-            console.error("Failed to deactivate user:", err);
-        } finally {
-            setLoadingId(null);
-        }
+        await challengeDeactivate(userId);
     };
 
     if (users.length === 0) {

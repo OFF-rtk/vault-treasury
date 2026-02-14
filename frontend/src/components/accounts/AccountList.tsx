@@ -12,9 +12,10 @@ interface AccountListProps {
     total: number;
     page: number;
     totalPages: number;
+    pendingRequestCounts?: Record<string, number>;
 }
 
-export function AccountList({ accounts, total, page, totalPages }: AccountListProps) {
+export function AccountList({ accounts, total, page, totalPages, pendingRequestCounts = {} }: AccountListProps) {
     const router = useRouter();
 
     const goToPage = (newPage: number) => {
@@ -60,7 +61,7 @@ export function AccountList({ accounts, total, page, totalPages }: AccountListPr
                             exit={{ opacity: 0, scale: 0.95 }}
                             transition={{ duration: 0.3, ease: "easeOut" }}
                         >
-                            <AccountCard account={account} />
+                            <AccountCard account={account} pendingRequestCount={pendingRequestCounts[account.id] || 0} />
                         </motion.div>
                     ))}
                 </AnimatePresence>

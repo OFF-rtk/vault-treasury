@@ -25,11 +25,11 @@ function formatFullAmount(amount: number, currency: string = "USD"): string {
 
 interface AccountCardProps {
     account: Account;
+    pendingRequestCount?: number;
 }
 
-export function AccountCard({ account }: AccountCardProps) {
+export function AccountCard({ account, pendingRequestCount = 0 }: AccountCardProps) {
     // Logic to find limits (Safe access)
-    // Assuming structure: limits might be an array based on your previous snippet
     const dailyLimit = account.limits?.find((l: any) => l.limit_type === 'daily');
     const perTxnLimit = account.limits?.find((l: any) => l.limit_type === 'per_transaction');
 
@@ -108,6 +108,12 @@ export function AccountCard({ account }: AccountCardProps) {
                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                                         Daily Utilization
                                     </span>
+                                    {/* Pending request badge — near limits */}
+                                    {pendingRequestCount > 0 && (
+                                        <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-amber-100 text-amber-700 text-[9px] font-bold leading-none">
+                                            {pendingRequestCount}
+                                        </span>
+                                    )}
                                 </div>
                                 <span className="text-[10px] font-mono font-medium text-slate-700">
                                     {Math.round(usagePercent)}%
@@ -135,6 +141,12 @@ export function AccountCard({ account }: AccountCardProps) {
                         <div className="flex items-center gap-2 py-1">
                             <Activity className="w-3 h-3 text-slate-300" />
                             <span className="text-xs text-slate-400 italic">No daily limit configured</span>
+                            {/* Badge even when no daily limit */}
+                            {pendingRequestCount > 0 && (
+                                <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-amber-100 text-amber-700 text-[9px] font-bold leading-none">
+                                    {pendingRequestCount}
+                                </span>
+                            )}
                         </div>
                     )}
 

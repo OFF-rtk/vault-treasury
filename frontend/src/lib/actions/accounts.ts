@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { smartGet, smartPatch } from '@/lib/api/smart-fetch';
+import { smartGet, smartPost, smartPatch } from '@/lib/api/smart-fetch';
 
 // --- Types ---
 
@@ -54,6 +54,21 @@ export interface AccountListResponse {
     totalPages: number;
 }
 
+export interface LimitChangeRequest {
+    id: string;
+    account_id: string;
+    limit_type: 'daily' | 'per_transaction';
+    current_amount: number;
+    requested_amount: number;
+    status: 'pending' | 'approved' | 'rejected';
+    requested_by: string;
+    requested_by_name: string;
+    reviewed_by: string | null;
+    reviewed_at: string | null;
+    rejection_reason: string | null;
+    created_at: string;
+}
+
 // --- Actions ---
 
 export async function fetchAccounts(filters: { page?: number; limit?: number } = {}): Promise<AccountListResponse> {
@@ -80,6 +95,30 @@ export async function updateAccountLimits(
     revalidatePath('/accounts');
     revalidatePath(`/accounts/${id}`);
     return result;
+}
+
+// --- Limit Change Requests ---
+
+export async function requestLimitChange(
+    accountId: string,
+    limitType: 'daily' | 'per_transaction',
+    requestedAmount: number,
+): Promise<LimitChangeRequest> {
+    const result = await smartPost<LimitChangeRequest>(
+        `/api/accounts/${accountId}/limit-request`,
+        { limitType, requestedAmount },
+    );
+    revalidatePath('/accounts');
+    revalidatePath(`/accounts/${accountId}`);
+    return result;
+}
+
+export async function fetchPendingLimitRequests(accountId: string): Promise<LimitChangeRequest[]> {
+    return smartGet<LimitChangeRequest[]>(`/api/accounts/${accountId}/limit-requests`);
+}
+
+export async function fetchPendingRequestCounts(): Promise<Record<string, number>> {
+    return smartGet<Record<string, number>>('/api/accounts/pending-request-counts');
 }
 
 // --- Liquidity Stats ---

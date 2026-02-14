@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Clock, Mail, Building, UserCheck, UserX, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { approveUser, rejectUser, type PendingUser } from "@/lib/actions/admin";
+import { useChallengeAction } from "@/hooks/useChallengeAction";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -36,28 +37,26 @@ export function SignupRequestCard({ user }: SignupRequestCardProps) {
     const router = useRouter();
     const [loading, setLoading] = useState<"approve" | "reject" | null>(null);
 
+    const { execute: challengeApprove } = useChallengeAction({
+        action: approveUser,
+        onSuccess: () => { setLoading(null); router.refresh(); },
+        onError: (err) => { setLoading(null); console.error('Failed to approve user:', err); },
+    });
+
+    const { execute: challengeReject } = useChallengeAction({
+        action: rejectUser,
+        onSuccess: () => { setLoading(null); router.refresh(); },
+        onError: (err) => { setLoading(null); console.error('Failed to reject user:', err); },
+    });
+
     const handleApprove = async () => {
         setLoading("approve");
-        try {
-            await approveUser(user.id);
-            router.refresh();
-        } catch (err) {
-            console.error("Failed to approve user:", err);
-        } finally {
-            setLoading(null);
-        }
+        await challengeApprove(user.id);
     };
 
     const handleReject = async () => {
         setLoading("reject");
-        try {
-            await rejectUser(user.id);
-            router.refresh();
-        } catch (err) {
-            console.error("Failed to reject user:", err);
-        } finally {
-            setLoading(null);
-        }
+        await challengeReject(user.id);
     };
 
     return (

@@ -193,5 +193,105 @@ export class AdminService {
 
         return { message: 'User deactivated successfully' };
     }
+
+    /**
+     * Approve a limit change request.
+     * Applies the requested limit via upsert, then marks request as approved.
+     */
+    async approveLimitRequest(requestId: string, adminUserId: string): Promise<{ message: string }> {
+        const client = this.supabase.getServiceRoleClient();
+
+        // Fetch the request
+        const { data: request, error: fetchError } = await client
+            .from('limit_change_requests')
+            .select('*')
+            .eq('id', requestId)
+            .eq('status', 'pending')
+            .single();
+
+        if (fetchError || !request) {
+            throw new NotFoundException('Limit change request not found or already processed');
+        }
+
+        // Apply the limit change
+        const { error: upsertError } = await client
+            .from('account_limits')
+            .upsert(
+                {
+                    account_id: request.account_id,
+                    limit_type: request.limit_type,
+                    limit_amount: request.requested_amount,
+                    updated_by: adminUserId,
+                    updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'account_id,limit_type' },
+            );
+
+        if (upsertError) {
+            this.logger.error(`Failed to apply limit change: ${upsertError.message}`);
+            throw new BadRequestException('Failed to apply limit change');
+        }
+
+        // Mark request as approved
+        const { error: updateError } = await client
+            .from('limit_change_requests')
+            .update({
+                status: 'approved',
+                reviewed_by: adminUserId,
+                reviewed_at: new Date().toISOString(),
+            })
+            .eq('id', requestId);
+
+        if (updateError) {
+            this.logger.error(`Failed to update request status: ${updateError.message}`);
+            throw new BadRequestException('Failed to update request status');
+        }
+
+        this.logger.log(`Limit request ${requestId} approved by ${adminUserId}`);
+        return { message: 'Limit change request approved and applied' };
+    }
+
+    /**
+     * Reject a limit change request with optional reason.
+     */
+    async rejectLimitRequest(
+        requestId: string,
+        adminUserId: string,
+        reason?: string,
+    ): Promise<{ message: string }> {
+        const client = this.supabase.getServiceRoleClient();
+
+        // Fetch the request
+        const { data: request, error: fetchError } = await client
+            .from('limit_change_requests')
+            .select('id, status')
+            .eq('id', requestId)
+            .eq('status', 'pending')
+            .single();
+
+        if (fetchError || !request) {
+            throw new NotFoundException('Limit change request not found or already processed');
+        }
+
+        // Mark as rejected
+        const { error: updateError } = await client
+            .from('limit_change_requests')
+            .update({
+                status: 'rejected',
+                reviewed_by: adminUserId,
+                reviewed_at: new Date().toISOString(),
+                rejection_reason: reason || null,
+            })
+            .eq('id', requestId);
+
+        if (updateError) {
+            this.logger.error(`Failed to reject limit request: ${updateError.message}`);
+            throw new BadRequestException('Failed to reject limit request');
+        }
+
+        this.logger.log(`Limit request ${requestId} rejected by ${adminUserId}`);
+        return { message: 'Limit change request rejected' };
+    }
 }
+
 

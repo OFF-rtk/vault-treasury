@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Param, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
 import { AdminService, PendingUser, TreasuryUser } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { SentinelGuard } from '../sentinel/sentinel.guard';
+import { RejectLimitRequestDto } from '../accounts/dto/account.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -50,5 +51,25 @@ export class AdminController {
     ): Promise<{ message: string }> {
         return this.adminService.deactivateUser(userId, req.user.userId);
     }
-}
 
+    @Post('limit-requests/:id/approve')
+    @UseGuards(SentinelGuard)
+    @HttpCode(HttpStatus.OK)
+    async approveLimitRequest(
+        @Param('id') requestId: string,
+        @Request() req,
+    ): Promise<{ message: string }> {
+        return this.adminService.approveLimitRequest(requestId, req.user.userId);
+    }
+
+    @Post('limit-requests/:id/reject')
+    @UseGuards(SentinelGuard)
+    @HttpCode(HttpStatus.OK)
+    async rejectLimitRequest(
+        @Param('id') requestId: string,
+        @Request() req,
+        @Body() body: RejectLimitRequestDto,
+    ): Promise<{ message: string }> {
+        return this.adminService.rejectLimitRequest(requestId, req.user.userId, body.reason);
+    }
+}

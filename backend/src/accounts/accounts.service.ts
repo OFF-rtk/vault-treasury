@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { SupabaseService } from '../database/supabase.service';
-import { AccountFiltersDto, UpdateLimitsDto } from './dto/account.dto';
+import { AccountFiltersDto, UpdateLimitsDto, RequestLimitChangeDto } from './dto/account.dto';
 
 /**
  * Static exchange rates to USD for pending exposure conversion.
@@ -175,10 +175,10 @@ export class AccountsService {
 
     /**
      * Update account limits (daily and/or per-transaction).
-     * At least one value must be provided.
+     * Admin-only — uses service role client to bypass RLS.
      */
     async updateLimits(id: string, userId: string, dto: UpdateLimitsDto) {
-        const client = this.supabase.getClient();
+        const client = this.supabase.getServiceRoleClient();
 
         if (!dto.daily && !dto.perTransaction) {
             throw new BadRequestException('At least one limit value must be provided');
@@ -251,5 +251,143 @@ export class AccountsService {
 
         this.logger.log(`Limits updated for account ${id} by ${userId}`);
         return { accountId: id, limits: results };
+    }
+
+    /**
+     * Submit a limit change request (treasurer flow).
+     * Uses user-scoped client — passes treasury INSERT RLS.
+     */
+    async requestLimitChange(accountId: string, userId: string, dto: RequestLimitChangeDto) {
+        const client = this.supabase.getClient();
+
+        // Verify account exists and is internal
+        const { data: account, error: accError } = await client
+            .from('accounts')
+            .select('id, account_type')
+            .eq('id', accountId)
+            .single();
+
+        if (accError || !account) {
+            throw new NotFoundException(`Account ${accountId} not found`);
+        }
+
+        if (account.account_type !== 'internal') {
+            throw new BadRequestException('Cannot modify limits on external accounts');
+        }
+
+        // Get current limit amount
+        const { data: currentLimit } = await client
+            .from('account_limits')
+            .select('limit_amount')
+            .eq('account_id', accountId)
+            .eq('limit_type', dto.limitType)
+            .single();
+
+        const currentAmount = currentLimit?.limit_amount || 0;
+
+        // Check for duplicate pending request
+        const { data: existing } = await client
+            .from('limit_change_requests')
+            .select('id')
+            .eq('account_id', accountId)
+            .eq('limit_type', dto.limitType)
+            .eq('status', 'pending')
+            .maybeSingle();
+
+        if (existing) {
+            throw new BadRequestException(
+                `A pending ${dto.limitType} limit request already exists for this account`,
+            );
+        }
+
+        // Insert request
+        const { data, error } = await client
+            .from('limit_change_requests')
+            .insert({
+                account_id: accountId,
+                limit_type: dto.limitType,
+                current_amount: currentAmount,
+                requested_amount: dto.requestedAmount,
+                requested_by: userId,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            this.logger.error(`Failed to create limit request: ${error.message}`);
+            throw new BadRequestException('Failed to submit limit change request');
+        }
+
+        this.logger.log(
+            `Limit change request created: ${dto.limitType} ${currentAmount} -> ${dto.requestedAmount} for account ${accountId} by ${userId}`,
+        );
+
+        return data;
+    }
+
+    /**
+     * Get pending limit change requests for an account.
+     */
+    async getPendingLimitRequests(accountId: string) {
+        const client = this.supabase.getClient();
+
+        const { data, error } = await client
+            .from('limit_change_requests')
+            .select('*')
+            .eq('account_id', accountId)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            this.logger.error(`Failed to fetch limit requests: ${error.message}`);
+            throw new BadRequestException('Failed to fetch limit requests');
+        }
+
+        // Resolve requester names
+        const userIds = new Set<string>();
+        (data || []).forEach((r: any) => {
+            if (r.requested_by) userIds.add(r.requested_by);
+        });
+
+        const nameMap: Record<string, string> = {};
+        if (userIds.size > 0) {
+            const { data: profiles } = await client
+                .from('treasury_profiles')
+                .select('user_id, full_name')
+                .in('user_id', Array.from(userIds));
+
+            (profiles || []).forEach((p: any) => {
+                nameMap[p.user_id] = p.full_name;
+            });
+        }
+
+        return (data || []).map((r: any) => ({
+            ...r,
+            requested_by_name: nameMap[r.requested_by] || r.requested_by,
+        }));
+    }
+
+    /**
+     * Get count of pending limit requests per account (for badge display).
+     */
+    async getPendingRequestCounts(): Promise<Record<string, number>> {
+        const client = this.supabase.getClient();
+
+        const { data, error } = await client
+            .from('limit_change_requests')
+            .select('account_id')
+            .eq('status', 'pending');
+
+        if (error) {
+            this.logger.warn(`Failed to fetch pending request counts: ${error.message}`);
+            return {};
+        }
+
+        const counts: Record<string, number> = {};
+        (data || []).forEach((r: any) => {
+            counts[r.account_id] = (counts[r.account_id] || 0) + 1;
+        });
+
+        return counts;
     }
 }

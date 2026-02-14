@@ -30,6 +30,8 @@ interface LimitDialogProps {
     currentLimits: AccountLimit[];
     onConfirm: (limits: { daily?: number; perTransaction?: number }) => void;
     isPending?: boolean;
+    /** When true, dialog acts as "Request Change" (treasurer). When false, direct "Update Limits" (admin). */
+    isRequestMode?: boolean;
 }
 
 export function LimitDialog({
@@ -39,6 +41,7 @@ export function LimitDialog({
     currentLimits,
     onConfirm,
     isPending,
+    isRequestMode = false,
 }: LimitDialogProps) {
     const currentDaily = currentLimits.find(l => l.limit_type === 'daily');
     const currentPerTxn = currentLimits.find(l => l.limit_type === 'per_transaction');
@@ -84,11 +87,14 @@ export function LimitDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <ShieldAlert className="h-5 w-5 text-amber-500" />
-                        Modify Limits
+                        {isRequestMode ? "Request Limit Change" : "Modify Limits"}
                     </DialogTitle>
                     <DialogDescription>
-                        Update transaction limits for <span className="font-semibold text-slate-700">{accountName}</span>.
-                        This action is protected by behavioral verification.
+                        {isRequestMode ? (
+                            <>Submit a limit change request for <span className="font-semibold text-slate-700">{accountName}</span>. An admin will review and approve your request.</>
+                        ) : (
+                            <>Update transaction limits for <span className="font-semibold text-slate-700">{accountName}</span>. This action is protected by behavioral verification.</>
+                        )}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -153,7 +159,7 @@ export function LimitDialog({
                         onClick={handleConfirm}
                         disabled={!hasChanges || isPending}
                     >
-                        Update Limits
+                        {isRequestMode ? "Submit Request" : "Update Limits"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

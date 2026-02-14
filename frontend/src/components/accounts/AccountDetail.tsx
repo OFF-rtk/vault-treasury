@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,11 +15,16 @@ import {
     Landmark,
     CreditCard,
     Activity,
-    History
+    History,
+    Check,
+    X,
 } from "lucide-react";
 import { LimitDialog } from "./LimitDialog";
-import { updateAccountLimits } from "@/lib/actions/accounts";
-import type { AccountWithDetails, RecentPayment, AccountLimit } from "@/lib/actions/accounts";
+import { ApproveLimitDialog, RejectLimitDialog } from "./LimitRequestDialogs";
+import { updateAccountLimits, requestLimitChange } from "@/lib/actions/accounts";
+import { approveLimitRequest, rejectLimitRequest } from "@/lib/actions/admin";
+import { useChallengeAction } from "@/hooks/useChallengeAction";
+import type { AccountWithDetails, RecentPayment, AccountLimit, LimitChangeRequest } from "@/lib/actions/accounts";
 
 // --- Formatters ---
 
@@ -60,12 +65,22 @@ const paymentStatusConfig = {
 
 interface AccountDetailProps {
     account: AccountWithDetails;
+    userRole?: string;
+    pendingRequests?: LimitChangeRequest[];
 }
 
-export function AccountDetailClient({ account }: AccountDetailProps) {
+export function AccountDetailClient({ account, userRole, pendingRequests = [] }: AccountDetailProps) {
     const router = useRouter();
     const [limitDialogOpen, setLimitDialogOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
+
+    // Admin confirm dialogs
+    const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+    const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+    const [selectedRequest, setSelectedRequest] = useState<LimitChangeRequest | null>(null);
+
+    const isAdmin = userRole === 'treasury_admin';
+    const isRequestMode = !isAdmin;
 
     // Limit Logic
     const dailyLimit = account.limits?.find((l: AccountLimit) => l.limit_type === 'daily');
@@ -83,15 +98,69 @@ export function AccountDetailClient({ account }: AccountDetailProps) {
             ? "bg-amber-500"
             : "bg-blue-600";
 
-    const handleUpdateLimits = (limits: { daily?: number; perTransaction?: number }) => {
+    // Challenge-wrapped actions for Sentinel-gated endpoints
+    const { execute: challengeRequestLimitChange } = useChallengeAction({
+        action: requestLimitChange,
+        onSuccess: () => { setLimitDialogOpen(false); router.refresh(); },
+        onError: (err) => console.error('Limit request failed:', err),
+    });
+
+    const { execute: challengeUpdateLimits } = useChallengeAction({
+        action: updateAccountLimits,
+        onSuccess: () => { setLimitDialogOpen(false); router.refresh(); },
+        onError: (err) => console.error('Limit update failed:', err),
+    });
+
+    const { execute: challengeApproveLimitRequest } = useChallengeAction({
+        action: approveLimitRequest,
+        onSuccess: () => { setApproveDialogOpen(false); setSelectedRequest(null); router.refresh(); },
+        onError: (err) => console.error('Approve limit request failed:', err),
+    });
+
+    const { execute: challengeRejectLimitRequest } = useChallengeAction({
+        action: rejectLimitRequest,
+        onSuccess: () => { setRejectDialogOpen(false); setSelectedRequest(null); router.refresh(); },
+        onError: (err) => console.error('Reject limit request failed:', err),
+    });
+
+    const handleLimitAction = (limits: { daily?: number; perTransaction?: number }) => {
         startTransition(async () => {
-            try {
-                await updateAccountLimits(account.id, limits);
-                setLimitDialogOpen(false);
-                router.refresh();
-            } catch (error) {
-                console.error("Failed to update limits:", error);
+            if (isRequestMode) {
+                // Treasurer: submit request(s)
+                if (limits.daily) {
+                    await challengeRequestLimitChange(account.id, 'daily', limits.daily);
+                }
+                if (limits.perTransaction) {
+                    await challengeRequestLimitChange(account.id, 'per_transaction', limits.perTransaction);
+                }
+            } else {
+                // Admin: direct update
+                await challengeUpdateLimits(account.id, limits);
             }
+        });
+    };
+
+    const handleApprove = (request: LimitChangeRequest) => {
+        setSelectedRequest(request);
+        setApproveDialogOpen(true);
+    };
+
+    const handleReject = (request: LimitChangeRequest) => {
+        setSelectedRequest(request);
+        setRejectDialogOpen(true);
+    };
+
+    const confirmApprove = () => {
+        if (!selectedRequest) return;
+        startTransition(async () => {
+            await challengeApproveLimitRequest(selectedRequest.id);
+        });
+    };
+
+    const confirmReject = (reason: string) => {
+        if (!selectedRequest) return;
+        startTransition(async () => {
+            await challengeRejectLimitRequest(selectedRequest.id, reason);
         });
     };
 
@@ -174,7 +243,7 @@ export function AccountDetailClient({ account }: AccountDetailProps) {
                                     onClick={() => setLimitDialogOpen(true)}
                                 >
                                     <Settings2 className="w-3.5 h-3.5 mr-2" />
-                                    Configure
+                                    {isRequestMode ? "Request Change" : "Configure"}
                                 </Button>
                             </div>
 
@@ -230,6 +299,79 @@ export function AccountDetailClient({ account }: AccountDetailProps) {
                             </div>
                         </div>
                     </div>
+
+                    {/* ───── ADMIN-ONLY: Pending Limit Requests ───── */}
+                    {isAdmin && pendingRequests.length > 0 && (
+                        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                            <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-1">
+                                    <Activity className="w-4 h-4 text-amber-500" />
+                                    <h2 className="text-xs font-bold text-slate-900 uppercase tracking-widest">
+                                        Pending Limit Requests
+                                    </h2>
+                                </div>
+                                <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                                    {pendingRequests.length}
+                                </span>
+                            </div>
+                            <div className="divide-y divide-slate-50">
+                                {pendingRequests.map((request) => (
+                                    <div key={request.id} className="px-6 py-5">
+                                        <div className="flex items-start justify-between">
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                                        {request.limit_type === 'daily' ? 'Daily Limit' : 'Per-Txn Limit'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-sm font-mono text-slate-500">
+                                                        {formatCompactAmount(request.current_amount)}
+                                                    </span>
+                                                    <span className="text-xs text-slate-300">→</span>
+                                                    <span className="text-sm font-mono font-bold text-slate-900">
+                                                        {formatCompactAmount(request.requested_amount)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <User className="w-3 h-3 text-slate-300" />
+                                                    <span className="text-[10px] text-slate-400">
+                                                        {request.requested_by_name}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-300">•</span>
+                                                    <Clock className="w-3 h-3 text-slate-300" />
+                                                    <span className="text-[10px] text-slate-400">
+                                                        {formatDate(request.created_at)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 text-xs font-medium text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                                                    onClick={() => handleReject(request)}
+                                                    disabled={isPending}
+                                                >
+                                                    <X className="w-3.5 h-3.5 mr-1" />
+                                                    Reject
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    className="h-8 text-xs font-medium bg-slate-900 hover:bg-slate-800"
+                                                    onClick={() => handleApprove(request)}
+                                                    disabled={isPending}
+                                                >
+                                                    <Check className="w-3.5 h-3.5 mr-1" />
+                                                    Approve
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ───── RIGHT COLUMN (Activity) ───── */}
@@ -345,13 +487,33 @@ export function AccountDetailClient({ account }: AccountDetailProps) {
                 </div>
             </div>
 
-            {/* Limit Modification Dialog */}
+            {/* Limit Modification / Request Dialog */}
             <LimitDialog
                 open={limitDialogOpen}
                 onOpenChange={setLimitDialogOpen}
                 accountName={account.account_name}
                 currentLimits={account.limits || []}
-                onConfirm={handleUpdateLimits}
+                onConfirm={handleLimitAction}
+                isPending={isPending}
+                isRequestMode={isRequestMode}
+            />
+
+            {/* Admin Confirmation Dialogs */}
+            <ApproveLimitDialog
+                open={approveDialogOpen}
+                onOpenChange={setApproveDialogOpen}
+                limitType={selectedRequest?.limit_type}
+                currentAmount={selectedRequest ? formatCompactAmount(selectedRequest.current_amount) : undefined}
+                requestedAmount={selectedRequest ? formatCompactAmount(selectedRequest.requested_amount) : undefined}
+                requesterName={selectedRequest?.requested_by_name}
+                onConfirm={confirmApprove}
+                isPending={isPending}
+            />
+
+            <RejectLimitDialog
+                open={rejectDialogOpen}
+                onOpenChange={setRejectDialogOpen}
+                onConfirm={confirmReject}
                 isPending={isPending}
             />
         </div>

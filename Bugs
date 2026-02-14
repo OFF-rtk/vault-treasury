@@ -1,5 +1,6 @@
-[Nest] 2462095  - 02/13/2026, 7:07:17 PM   ERROR [AccountsService] Failed to update daily limit for c0e55278-13d7-4f9a-bfcc-0a3f2bd1d9e9: new row violates row-level security policy for table "account_limits"
-account limit set error need RLS updation
+1. [Nest] 2462095  - 02/13/2026, 7:07:17 PM   ERROR [AccountsService] Failed to update daily limit for c0e55278-13d7-4f9a-bfcc-0a3f2bd1d9e9: new row violates row-level security policy for table "account_limits"
+    account limit set error need RLS updation
 
+2. 
 
 
