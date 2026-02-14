@@ -36,6 +36,8 @@ interface SignupRequestCardProps {
 export function SignupRequestCard({ user }: SignupRequestCardProps) {
     const router = useRouter();
     const [loading, setLoading] = useState<"approve" | "reject" | null>(null);
+    const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+    const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
 
     const { execute: challengeApprove } = useChallengeAction({
         action: approveUser,
@@ -51,11 +53,13 @@ export function SignupRequestCard({ user }: SignupRequestCardProps) {
 
     const handleApprove = async () => {
         setLoading("approve");
+        setApproveDialogOpen(false);
         await challengeApprove(user.id);
     };
 
     const handleReject = async () => {
         setLoading("reject");
+        setRejectDialogOpen(false);
         await challengeReject(user.id);
     };
 
@@ -94,7 +98,7 @@ export function SignupRequestCard({ user }: SignupRequestCardProps) {
 
             {/* Actions Footer */}
             <div className="p-3 bg-slate-50 border-t border-slate-100 flex gap-3">
-                <AlertDialog>
+                <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
                     <AlertDialogTrigger asChild>
                         <Button
                             variant="outline"
@@ -130,7 +134,7 @@ export function SignupRequestCard({ user }: SignupRequestCardProps) {
                     </AlertDialogContent>
                 </AlertDialog>
 
-                <AlertDialog>
+                <AlertDialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
                     <AlertDialogTrigger asChild>
                         <Button
                             size="sm"

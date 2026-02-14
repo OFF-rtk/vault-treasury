@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import { SentinelProvider } from '@/components/sentinel/SentinelProvider';
 import { ChallengeProvider } from '@/components/sentinel/ChallengeProvider';
 import { ChallengeModal } from '@/components/sentinel/ChallengeModal';
+import { SecurityProcessingModal } from '@/components/sentinel/SecurityProcessingModal';
 
 /**
  * Client component wrapper that provides Sentinel event collection
@@ -17,8 +18,10 @@ export function SentinelWrapper({ children }: { children: ReactNode }) {
         <SentinelProvider>
             <ChallengeProvider>
                 {children}
+                <SecurityProcessingModal />
                 <ChallengeModal />
             </ChallengeProvider>
         </SentinelProvider>
     );
 }
+

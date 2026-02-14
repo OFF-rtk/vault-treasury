@@ -101,32 +101,33 @@ export function AccountDetailClient({ account, userRole, pendingRequests = [] }:
     // Challenge-wrapped actions for Sentinel-gated endpoints
     const { execute: challengeRequestLimitChange } = useChallengeAction({
         action: requestLimitChange,
-        onSuccess: () => { setLimitDialogOpen(false); router.refresh(); },
+        onSuccess: () => router.refresh(),
         onError: (err) => console.error('Limit request failed:', err),
     });
 
     const { execute: challengeUpdateLimits } = useChallengeAction({
         action: updateAccountLimits,
-        onSuccess: () => { setLimitDialogOpen(false); router.refresh(); },
+        onSuccess: () => router.refresh(),
         onError: (err) => console.error('Limit update failed:', err),
     });
 
     const { execute: challengeApproveLimitRequest } = useChallengeAction({
         action: approveLimitRequest,
-        onSuccess: () => { setApproveDialogOpen(false); setSelectedRequest(null); router.refresh(); },
+        onSuccess: () => { setSelectedRequest(null); router.refresh(); },
         onError: (err) => console.error('Approve limit request failed:', err),
     });
 
     const { execute: challengeRejectLimitRequest } = useChallengeAction({
         action: rejectLimitRequest,
-        onSuccess: () => { setRejectDialogOpen(false); setSelectedRequest(null); router.refresh(); },
+        onSuccess: () => { setSelectedRequest(null); router.refresh(); },
         onError: (err) => console.error('Reject limit request failed:', err),
     });
 
     const handleLimitAction = (limits: { daily?: number; perTransaction?: number }) => {
+        // Close the limit dialog immediately so Sentinel processing modal is visible
+        setLimitDialogOpen(false);
         startTransition(async () => {
             if (isRequestMode) {
-                // Treasurer: submit request(s)
                 if (limits.daily) {
                     await challengeRequestLimitChange(account.id, 'daily', limits.daily);
                 }
@@ -134,7 +135,6 @@ export function AccountDetailClient({ account, userRole, pendingRequests = [] }:
                     await challengeRequestLimitChange(account.id, 'per_transaction', limits.perTransaction);
                 }
             } else {
-                // Admin: direct update
                 await challengeUpdateLimits(account.id, limits);
             }
         });
@@ -152,6 +152,8 @@ export function AccountDetailClient({ account, userRole, pendingRequests = [] }:
 
     const confirmApprove = () => {
         if (!selectedRequest) return;
+        // Close dialog immediately so processing modal is visible
+        setApproveDialogOpen(false);
         startTransition(async () => {
             await challengeApproveLimitRequest(selectedRequest.id);
         });
@@ -159,6 +161,8 @@ export function AccountDetailClient({ account, userRole, pendingRequests = [] }:
 
     const confirmReject = (reason: string) => {
         if (!selectedRequest) return;
+        // Close dialog immediately so processing modal is visible
+        setRejectDialogOpen(false);
         startTransition(async () => {
             await challengeRejectLimitRequest(selectedRequest.id, reason);
         });
