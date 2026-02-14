@@ -4,6 +4,75 @@
 
 ---
 
+## 2026-02-14 — Patch: Admin Sentinel Integration & Challenge Coverage
+
+**Problem:** Admin actions (approve/reject users, update limits, deactivate users) called server actions directly without handling 428 `CHALLENGE_REQUIRED` responses from `SentinelGuard`. If Sentinel flagged risk during an admin action, the request silently failed instead of triggering the behavioral verification modal. Additionally, the `/verify` page hardcoded a redirect to `/payments`, sending admins to the wrong dashboard.
+
+**Changes:**
+
+1. **Role-aware `/verify` redirect** — Added `getUserRole()` server action. After successful behavioral enrollment, admins redirect to `/admin/signups`, treasurers to `/payments`.
+2. **`useChallengeAction` on all gated actions** — Wrapped 7 additional server actions with the challenge hook (payments were already done):
+
+| Component | Actions Wrapped |
+|-----------|----------------|
+| `AccountDetail.tsx` | `requestLimitChange`, `updateAccountLimits`, `approveLimitRequest`, `rejectLimitRequest` |
+| `SignupRequestCard.tsx` | `approveUser`, `rejectUser` |
+| `UserList.tsx` | `deactivateUser` |
+
+**Files Modified:**
+
+| File | Change |
+|------|--------|
+| `frontend/src/lib/auth/actions.ts` | Added `getUserRole()` server action |
+| `frontend/src/app/(auth)/verify/page.tsx` | Role-aware redirect after verification |
+| `frontend/src/components/accounts/AccountDetail.tsx` | 4 actions wrapped with `useChallengeAction` |
+| `frontend/src/components/admin/SignupRequestCard.tsx` | 2 actions wrapped with `useChallengeAction` |
+| `frontend/src/components/admin/UserList.tsx` | 1 action wrapped with `useChallengeAction` |
+
+---
+
+## 2026-02-14 — Patch: Security Processing Modal (Sentinel Loading UX)
+
+**Problem:** Sentinel guard evaluation has 1-2s latency while `/evaluate` analyzes behavioral data. During this time the UI appeared frozen — no feedback that the action was being processed.
+
+**Solution:** A global `SecurityProcessingModal` with a 3-state lifecycle: `idle` → `processing` → `success` → `idle` (on user dismiss).
+
+**Architecture:**
+
+| Aspect | Detail |
+|--------|--------|
+| State machine | `processingState: 'idle' \| 'processing' \| 'success'` in `ChallengeProvider` context |
+| Auto-triggered | `useChallengeAction` sets `'processing'` before the network call, `'success'` on ALLOW |
+| Instant render | `flushSync()` forces React to render the modal immediately, bypassing `startTransition` batching |
+| z-index layering | Processing modal at `z-[45]`, Challenge modal at `z-50` — challenge overlays processing |
+| Dialog handoff | Confirmation dialogs close immediately on confirm → processing modal takes over |
+| Success dismiss | User clicks "Continue" or backdrop to dismiss the success state |
+| Error reset | On failure or challenge cancel, state resets to `'idle'` — modal hides immediately |
+
+**UX Flow:**
+```
+Confirm button → dialog closes → ⏳ processing modal (scanning beam) → ✅ success modal (checkmark) → user clicks Continue
+                                                                    ↘ 🔐 challenge modal (if 428) → retry → ✅ success
+```
+
+**Files Created:**
+
+| File | Purpose |
+|------|---------|
+| `frontend/src/components/sentinel/SecurityProcessingModal.tsx` | Animated processing + success overlay |
+
+**Files Modified:**
+
+| File | Change |
+|------|--------|
+| `frontend/src/components/sentinel/ChallengeProvider.tsx` | Added `processingState`, `setProcessingState`, `dismissProcessing` to context |
+| `frontend/src/hooks/useChallengeAction.ts` | Auto-toggles processing state with `flushSync` for instant render |
+| `frontend/src/app/(protected)/SentinelWrapper.tsx` | Mounted `SecurityProcessingModal` alongside `ChallengeModal` |
+| `frontend/src/components/accounts/AccountDetail.tsx` | Confirmation dialogs close immediately before challenge action |
+| `frontend/src/components/admin/SignupRequestCard.tsx` | Controlled AlertDialogs, close on confirm before challenge action |
+
+---
+
 ## 2026-02-12 — Module 5: Sentinel Integration & Behavioral 2FA (Complete)
 
 **Completed:**

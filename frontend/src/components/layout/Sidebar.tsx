@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     CreditCard,
     Building2,
@@ -12,7 +13,8 @@ import {
     LogOut,
     LayoutDashboard,
     Settings,
-    PieChart
+    PieChart,
+    LockKeyhole
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -71,55 +73,47 @@ const itemVariants = {
 export function Sidebar({ user }: { user: UserInfo }) {
     const pathname = usePathname();
     const isAdmin = user.role === "treasury_admin";
+    const [loggingOut, setLoggingOut] = useState(false);
 
     const handleLogout = async () => {
+        setLoggingOut(true);
         try {
             await fetch("/api/logout", { method: "POST" });
             window.location.href = "/login";
         } catch (error) {
             console.error("Logout failed", error);
+            setLoggingOut(false);
         }
     };
 
     return (
-        <motion.aside
-            initial="hidden"
-            animate="visible"
-            variants={sidebarVariants}
-            className="fixed left-0 top-0 z-40 h-screen w-64 bg-slate-50 text-slate-900 border-r border-slate-200 shadow-sm flex flex-col"
-        >
-            {/* 1. Header (Clean & Static) */}
-            <div className="h-16 flex items-center px-6 border-b border-slate-200 bg-slate-50 z-10">
-                <div className="flex items-center gap-3">
-                    {/* The Vault Icon (Slate-900) */}
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 shadow-md shadow-slate-900/10">
-                        <div className="h-3 w-3 bg-white rounded-full"></div>
+        <>
+            <motion.aside
+                initial="hidden"
+                animate="visible"
+                variants={sidebarVariants}
+                className="fixed left-0 top-0 z-40 h-screen w-64 bg-slate-50 text-slate-900 border-r border-slate-200 shadow-sm flex flex-col"
+            >
+                {/* 1. Header (Clean & Static) */}
+                <div className="h-16 flex items-center px-6 border-b border-slate-200 bg-slate-50 z-10">
+                    <div className="flex items-center gap-3">
+                        {/* The Vault Icon (Slate-900) */}
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 shadow-md shadow-slate-900/10">
+                            <div className="h-3 w-3 bg-white rounded-full"></div>
+                        </div>
+
+                        {/* Brand Name */}
+                        <span className="block text-lg font-bold text-slate-900 tracking-tight">
+                            VAULT
+                        </span>
                     </div>
-
-                    {/* Brand Name */}
-                    <span className="block text-lg font-bold text-slate-900 tracking-tight">
-                        VAULT
-                    </span>
-                </div>
-            </div>
-
-            {/* 2. Navigation (Scrollable) */}
-            <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scrollbar-none">
-                <div className="space-y-1">
-                    <SectionLabel>Operations</SectionLabel>
-                    {navItems.map((item) => (
-                        <NavLink
-                            key={item.href}
-                            item={item}
-                            isActive={pathname.startsWith(item.href)}
-                        />
-                    ))}
                 </div>
 
-                {isAdmin && (
+                {/* 2. Navigation (Scrollable) */}
+                <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scrollbar-none">
                     <div className="space-y-1">
-                        <SectionLabel>Administration</SectionLabel>
-                        {adminItems.map((item) => (
+                        <SectionLabel>Operations</SectionLabel>
+                        {navItems.map((item) => (
                             <NavLink
                                 key={item.href}
                                 item={item}
@@ -127,45 +121,97 @@ export function Sidebar({ user }: { user: UserInfo }) {
                             />
                         ))}
                     </div>
-                )}
-            </nav>
 
-            {/* 3. Footer (User Session) */}
-            <div className="border-t border-slate-200 bg-slate-100/50 p-4">
-                <motion.div
-                    whileHover={{ scale: 1.01 }}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-all border border-transparent hover:border-slate-200 hover:shadow-sm cursor-default group"
-                >
-                    <Avatar className="h-9 w-9 border border-slate-200 bg-white">
-                        <AvatarFallback className="text-xs font-semibold text-slate-700 bg-slate-100">
-                            {getInitials(user.fullName)}
-                        </AvatarFallback>
-                    </Avatar>
-
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 truncate">
-                            {user.fullName}
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                            <p className="text-[10px] text-slate-500 truncate font-mono uppercase font-medium">
-                                {isAdmin ? "Admin" : "Treasurer"}
-                            </p>
+                    {isAdmin && (
+                        <div className="space-y-1">
+                            <SectionLabel>Administration</SectionLabel>
+                            {adminItems.map((item) => (
+                                <NavLink
+                                    key={item.href}
+                                    item={item}
+                                    isActive={pathname.startsWith(item.href)}
+                                />
+                            ))}
                         </div>
-                    </div>
+                    )}
+                </nav>
 
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleLogout();
-                        }}
-                        className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
-                        title="Sign out"
+                {/* 3. Footer (User Session) */}
+                <div className="border-t border-slate-200 bg-slate-100/50 p-4">
+                    <motion.div
+                        whileHover={{ scale: 1.01 }}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-all border border-transparent hover:border-slate-200 hover:shadow-sm cursor-default group"
                     >
-                        <LogOut className="h-4 w-4" />
-                    </button>
-                </motion.div>
-            </div>
-        </motion.aside>
+                        <Avatar className="h-9 w-9 border border-slate-200 bg-white">
+                            <AvatarFallback className="text-xs font-semibold text-slate-700 bg-slate-100">
+                                {getInitials(user.fullName)}
+                            </AvatarFallback>
+                        </Avatar>
+
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-900 truncate">
+                                {user.fullName}
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                                <p className="text-[10px] text-slate-500 truncate font-mono uppercase font-medium">
+                                    {isAdmin ? "Admin" : "Treasurer"}
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleLogout();
+                            }}
+                            className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                            title="Sign out"
+                        >
+                            <LogOut className="h-4 w-4" />
+                        </button>
+                    </motion.div>
+                </div>
+            </motion.aside>
+
+            {/* Logout Overlay */}
+            <AnimatePresence>
+                {loggingOut && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50/60 backdrop-blur-[2px]"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.98, opacity: 0, y: -5 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+                            className="relative overflow-hidden flex flex-col items-center justify-center w-full max-w-[280px] bg-white rounded-2xl shadow-xl border border-slate-100 p-8"
+                        >
+                            <div className="relative h-14 w-14 mb-5 flex items-center justify-center overflow-hidden rounded-xl bg-slate-50 border border-slate-100">
+                                <LockKeyhole className="h-6 w-6 text-slate-400" strokeWidth={2} />
+                                <motion.div
+                                    animate={{ top: ['-20%', '120%'] }}
+                                    transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                                    className="absolute left-0 right-0 h-[2px] bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]"
+                                />
+                            </div>
+                            <div className="space-y-1 text-center">
+                                <h3 className="text-sm font-semibold text-slate-900 tracking-tight">
+                                    Signing Out
+                                </h3>
+                                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">
+                                    Ending Session
+                                </p>
+                            </div>
+                            <div className="absolute bottom-0 inset-x-0 h-1 bg-slate-50" />
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </>
     );
 }
 
