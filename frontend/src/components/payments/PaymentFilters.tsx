@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useState, useEffect, useTransition } from "react";
 import {
     Select,
     SelectContent,
@@ -19,11 +19,24 @@ export function PaymentFilters() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const [, startTransition] = useTransition();
 
     const currentStatus = searchParams.get("status") || "";
     const currentPriority = searchParams.get("priority") || "";
     const currentSearch = searchParams.get("search") || "";
     const currentSort = searchParams.get("sortBy") || "";
+
+    // Local search state for debouncing — source of truth for the input value
+    const [searchTerm, setSearchTerm] = useState(currentSearch);
+
+    // Debounce: only push URL update after 400ms of no typing
+    useEffect(() => {
+        if (searchTerm === currentSearch) return;
+        const timer = setTimeout(() => {
+            updateParam("search", searchTerm);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const updateParam = useCallback(
         (key: string, value: string) => {
@@ -35,14 +48,20 @@ export function PaymentFilters() {
             }
             // Reset to page 1 on filter change
             params.delete("page");
-            router.push(`${pathname}?${params.toString()}`);
+            // Non-blocking transition — input stays responsive during server re-render
+            startTransition(() => {
+                router.push(`${pathname}?${params.toString()}`);
+            });
         },
-        [router, pathname, searchParams]
+        [router, pathname, searchParams, startTransition]
     );
 
     const clearFilters = useCallback(() => {
-        router.push(pathname);
-    }, [router, pathname]);
+        setSearchTerm("");
+        startTransition(() => {
+            router.push(pathname);
+        });
+    }, [router, pathname, startTransition]);
 
     const hasFilters = currentStatus || currentPriority || currentSearch || currentSort;
 
@@ -96,11 +115,11 @@ export function PaymentFilters() {
                 </SelectContent>
             </Select>
 
-            {/* Search */}
+            {/* Search (debounced) */}
             <Input
                 placeholder="Search reference..."
-                value={currentSearch}
-                onChange={(e) => updateParam("search", e.target.value)}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-[200px]"
             />
 
