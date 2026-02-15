@@ -4,6 +4,57 @@
 
 ---
 
+## 2026-02-15 — Feature: Admin Account Balance Update
+
+**Problem:** Without a real bank connection, there's no way to fund accounts. The ERP simulator generates payments against internal accounts, but their balances start at seeded values and can only decrease through approved payments.
+
+**Solution:** Admin-only balance update feature on the account detail page.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Backend DTO | `accounts/dto/account.dto.ts` | Added `UpdateBalanceDto` |
+| Backend Service | `accounts/accounts.service.ts` | Added `updateBalance()` method |
+| Backend Controller | `accounts/accounts.controller.ts` | Added `PATCH :id/balance` (RolesGuard + SentinelGuard) |
+| Server Action | `lib/actions/accounts.ts` | Added `updateAccountBalance()` |
+| UI Component | `components/accounts/BalanceDialog.tsx` | New dialog with diff preview |
+| UI Integration | `components/accounts/AccountDetail.tsx` | Admin-only pencil icon, `useChallengeAction` wiring |
+
+**Security:** Endpoint requires `treasury_admin` role + Sentinel behavioral verification. RLS policy `accounts_update_admin` already permits admin updates. **No SQL migration needed.**
+
+---
+
+## 2026-02-15 — Feature: Module 6 — ERP Simulator Agent
+
+**Problem:** No way to generate realistic payment data for testing the treasury workflow (approve/reject payments, limit enforcement, Sentinel challenges).
+
+**Solution:** Backend agent with admin-controllable start/stop/config via the Settings page.
+
+**Backend:**
+
+| File | Purpose |
+|------|---------|
+| `erp-simulator/dto/erp-simulator.dto.ts` | Config validation DTO |
+| `erp-simulator/erp-simulator.service.ts` | Dynamic `setTimeout` loop, payment generation, config CRUD |
+| `erp-simulator/erp-simulator.controller.ts` | 4 endpoints (GET config, POST start/stop, PATCH config) |
+| `erp-simulator/erp-simulator.module.ts` | Module wiring |
+| `app.module.ts` | Added `ScheduleModule.forRoot()` |
+
+**Frontend:**
+
+| File | Purpose |
+|------|---------|
+| `lib/actions/erp-simulator.ts` | Server actions (fetch, start, stop, update) |
+| `components/admin/ErpSimulatorPanel.tsx` | Admin UI with live stats polling |
+| `app/(protected)/admin/settings/page.tsx` | Replaced placeholder with functional panel |
+
+**Key Design Decisions:**
+- `setTimeout` loop (not `@Cron`) — interval is admin-configurable and re-read each tick
+- Death-spiral prevention — try/catch in loop prevents single errors from killing generation
+- Idempotent start/stop — in-memory `isRunning` flag prevents duplicate timers
+- 10 currencies, all covered by existing exchange rate maps in `payments.service.ts` and `accounts.service.ts`
+
+---
+
 ## 2026-02-14 — Patch: Admin Sentinel Integration & Challenge Coverage
 
 **Problem:** Admin actions (approve/reject users, update limits, deactivate users) called server actions directly without handling 428 `CHALLENGE_REQUIRED` responses from `SentinelGuard`. If Sentinel flagged risk during an admin action, the request silently failed instead of triggering the behavioral verification modal. Additionally, the `/verify` page hardcoded a redirect to `/payments`, sending admins to the wrong dashboard.

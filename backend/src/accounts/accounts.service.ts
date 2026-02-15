@@ -390,4 +390,43 @@ export class AccountsService {
 
         return counts;
     }
+
+    /**
+     * Update account balance (admin-only).
+     * Used for manual balance adjustments since no real bank connection exists.
+     */
+    async updateBalance(id: string, userId: string, newBalance: number) {
+        const client = this.supabase.getServiceRoleClient();
+
+        // Verify account exists
+        const { data: account, error: fetchError } = await client
+            .from('accounts')
+            .select('id, account_name, balance')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !account) {
+            throw new NotFoundException(`Account ${id} not found`);
+        }
+
+        if (newBalance < 0) {
+            throw new BadRequestException('Balance cannot be negative');
+        }
+
+        const { error: updateError } = await client
+            .from('accounts')
+            .update({ balance: newBalance })
+            .eq('id', id);
+
+        if (updateError) {
+            this.logger.error(`Failed to update balance for ${id}: ${updateError.message}`);
+            throw new BadRequestException('Failed to update account balance');
+        }
+
+        this.logger.log(
+            `Balance updated for ${account.account_name}: ${account.balance} → ${newBalance} (by ${userId})`,
+        );
+
+        return { id, balance: newBalance };
+    }
 }

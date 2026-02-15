@@ -18,10 +18,12 @@ import {
     History,
     Check,
     X,
+    Pencil,
 } from "lucide-react";
 import { LimitDialog } from "./LimitDialog";
+import { BalanceDialog } from "./BalanceDialog";
 import { ApproveLimitDialog, RejectLimitDialog } from "./LimitRequestDialogs";
-import { updateAccountLimits, requestLimitChange } from "@/lib/actions/accounts";
+import { updateAccountLimits, requestLimitChange, updateAccountBalance } from "@/lib/actions/accounts";
 import { approveLimitRequest, rejectLimitRequest } from "@/lib/actions/admin";
 import { useChallengeAction } from "@/hooks/useChallengeAction";
 import type { AccountWithDetails, RecentPayment, AccountLimit, LimitChangeRequest } from "@/lib/actions/accounts";
@@ -72,6 +74,7 @@ interface AccountDetailProps {
 export function AccountDetailClient({ account, userRole, pendingRequests = [] }: AccountDetailProps) {
     const router = useRouter();
     const [limitDialogOpen, setLimitDialogOpen] = useState(false);
+    const [balanceDialogOpen, setBalanceDialogOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
 
     // Admin confirm dialogs
@@ -122,6 +125,19 @@ export function AccountDetailClient({ account, userRole, pendingRequests = [] }:
         onSuccess: () => { setSelectedRequest(null); router.refresh(); },
         onError: (err) => console.error('Reject limit request failed:', err),
     });
+
+    const { execute: challengeUpdateBalance } = useChallengeAction({
+        action: updateAccountBalance,
+        onSuccess: () => router.refresh(),
+        onError: (err) => console.error('Balance update failed:', err),
+    });
+
+    const handleBalanceUpdate = (newBalance: number) => {
+        setBalanceDialogOpen(false);
+        startTransition(async () => {
+            await challengeUpdateBalance(account.id, newBalance);
+        });
+    };
 
     const handleLimitAction = (limits: { daily?: number; perTransaction?: number }) => {
         // Close the limit dialog immediately so Sentinel processing modal is visible
@@ -227,6 +243,17 @@ export function AccountDetailClient({ account, userRole, pendingRequests = [] }:
                                     <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">
                                         {account.currency}
                                     </span>
+                                    {isAdmin && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 w-7 p-0 ml-1 text-slate-400 hover:text-slate-700"
+                                            onClick={() => setBalanceDialogOpen(true)}
+                                            title="Update balance"
+                                        >
+                                            <Pencil className="w-3.5 h-3.5" />
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -520,6 +547,19 @@ export function AccountDetailClient({ account, userRole, pendingRequests = [] }:
                 onConfirm={confirmReject}
                 isPending={isPending}
             />
+
+            {/* Admin Balance Dialog */}
+            {isAdmin && (
+                <BalanceDialog
+                    open={balanceDialogOpen}
+                    onOpenChange={setBalanceDialogOpen}
+                    accountName={account.account_name}
+                    currentBalance={account.balance}
+                    currency={account.currency}
+                    onConfirm={handleBalanceUpdate}
+                    isPending={isPending}
+                />
+            )}
         </div>
     );
 }

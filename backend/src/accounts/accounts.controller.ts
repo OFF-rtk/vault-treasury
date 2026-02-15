@@ -12,7 +12,7 @@ import {
     HttpStatus,
 } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
-import { AccountFiltersDto, UpdateLimitsDto, RequestLimitChangeDto } from './dto/account.dto';
+import { AccountFiltersDto, UpdateLimitsDto, RequestLimitChangeDto, UpdateBalanceDto } from './dto/account.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SentinelGuard } from '../sentinel/sentinel.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -69,5 +69,17 @@ export class AccountsController {
         @Body() body: UpdateLimitsDto,
     ) {
         return this.accountsService.updateLimits(id, req.user.userId, body);
+    }
+
+    @Patch(':id/balance')
+    @UseGuards(RolesGuard, SentinelGuard)
+    @Roles('treasury_admin')
+    @HttpCode(HttpStatus.OK)
+    async updateBalance(
+        @Param('id') id: string,
+        @Request() req,
+        @Body() body: UpdateBalanceDto,
+    ) {
+        return this.accountsService.updateBalance(id, req.user.userId, body.balance);
     }
 }

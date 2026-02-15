@@ -97,6 +97,19 @@ export async function updateAccountLimits(
     return result;
 }
 
+export async function updateAccountBalance(
+    id: string,
+    balance: number,
+): Promise<{ id: string; balance: number }> {
+    const result = await smartPatch<{ id: string; balance: number }>(
+        `/api/accounts/${id}/balance`,
+        { balance },
+    );
+    revalidatePath('/accounts');
+    revalidatePath(`/accounts/${id}`);
+    return result;
+}
+
 // --- Limit Change Requests ---
 
 export async function requestLimitChange(
