@@ -46,3 +46,9 @@ export class RejectLimitRequestDto {
     @IsString()
     reason?: string;
 }
+
+export class UpdateBalanceDto {
+    @IsNumber()
+    @Type(() => Number)
+    balance: number;
+}
