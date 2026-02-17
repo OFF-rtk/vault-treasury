@@ -7,6 +7,7 @@ export interface SentinelEvaluateResponse {
     risk: number;
     mode: string;
     challenge_text?: string;
+    ban_expires_in_seconds?: number;
 }
 
 export interface EvaluateParams {

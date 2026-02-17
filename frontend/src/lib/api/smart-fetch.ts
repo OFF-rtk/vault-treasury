@@ -53,7 +53,8 @@ async function handleErrorResponse(response: Response): Promise<never> {
     if (response.status === 401) {
         const terminated = response.headers.get('X-Session-Terminated');
         if (terminated === 'true') {
-            redirect('/terminated');
+            const banExpires = response.headers.get('X-Ban-Expires') || '0';
+            redirect(`/terminated?expires=${banExpires}`);
         }
         redirect('/login');
     }

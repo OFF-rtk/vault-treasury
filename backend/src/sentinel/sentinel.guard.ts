@@ -104,8 +104,9 @@ export class SentinelGuard implements CanActivate {
                 } catch (err) {
                     this.logger.error(`Failed to terminate session for ${userId}: ${err}`);
                 }
-                // Set terminated header
+                // Set terminated + ban timer headers
                 response.setHeader('X-Session-Terminated', 'true');
+                response.setHeader('X-Ban-Expires', String(result.ban_expires_in_seconds || 0));
                 throw new HttpException(
                     { statusCode: 401, message: 'Session terminated by security system' },
                     HttpStatus.UNAUTHORIZED,
