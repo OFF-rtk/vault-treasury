@@ -75,6 +75,7 @@ export function useChallengeAction<T extends (...args: any[]) => Promise<any>>({
                 } else {
                     setProcessingState('idle');
                     onError?.(error);
+                    return null;
                 }
             } finally {
                 setIsLoading(false);

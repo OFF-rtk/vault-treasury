@@ -9,6 +9,8 @@ import { approvePayment, rejectPayment } from "@/lib/actions/payments";
 import type { Payment } from "@/lib/actions/payments";
 import { motion, AnimatePresence } from "framer-motion";
 import { ApproveDialog, RejectDialog } from "./PaymentDialogs";
+import { LimitExceededDialog, parseLimitError } from "./LimitExceededDialog";
+import type { LimitErrorInfo } from "./LimitExceededDialog";
 import { useChallengeAction } from "@/hooks/useChallengeAction";
 
 interface PaymentListProps {
@@ -37,12 +39,21 @@ export function PaymentList({ payments, total, page, totalPages }: PaymentListPr
     // Reject State
     const [rejectTarget, setRejectTarget] = useState<string | null>(null);
     const [isActing, setIsActing] = useState(false);
+    const [limitError, setLimitError] = useState<LimitErrorInfo | null>(null);
 
     // Challenge-aware actions
     const { execute: challengeApprove } = useChallengeAction({
         action: approvePayment,
         onSuccess: () => router.refresh(),
-        onError: (err) => { console.error('Approve failed:', err); router.refresh(); },
+        onError: (err) => {
+            const parsed = parseLimitError(err?.message || '');
+            if (parsed) {
+                setLimitError(parsed);
+            } else {
+                console.error('Approve failed:', err);
+            }
+            router.refresh();
+        },
     });
 
     const { execute: challengeReject } = useChallengeAction({
@@ -193,6 +204,11 @@ export function PaymentList({ payments, total, page, totalPages }: PaymentListPr
                 onOpenChange={(open) => { if (!open) setRejectTarget(null); }}
                 onConfirm={handleRejectConfirm}
                 isPending={isActing}
+            />
+            <LimitExceededDialog
+                open={!!limitError}
+                onOpenChange={(open) => { if (!open) setLimitError(null); }}
+                limitInfo={limitError}
             />
         </>
     );

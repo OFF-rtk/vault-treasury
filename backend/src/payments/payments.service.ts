@@ -294,7 +294,7 @@ export class PaymentsService {
             // Fetch source account for currency conversion
             const { data: acct } = await client
                 .from('accounts')
-                .select('id, balance, currency')
+                .select('id, balance, currency, account_name')
                 .eq('id', payment.from_account_id)
                 .single();
             sourceAccount = acct;
@@ -321,8 +321,9 @@ export class PaymentsService {
                 .single();
 
             if (perTxnLimit && convertedAmount > Number(perTxnLimit.limit_amount)) {
+                const diff = parseFloat((convertedAmount - Number(perTxnLimit.limit_amount)).toFixed(2));
                 throw new BadRequestException(
-                    `Transaction amount (${convertedAmount.toFixed(2)} ${accountCurrency}) exceeds per-transaction limit (${perTxnLimit.limit_amount} ${accountCurrency})`,
+                    `LIMIT_EXCEEDED:per_transaction:${payment.from_account_id}:${parseFloat(convertedAmount.toFixed(2))}:${Number(perTxnLimit.limit_amount)}:${diff}:${sourceAccount?.currency || 'USD'}`,
                 );
             }
 
@@ -360,8 +361,9 @@ export class PaymentsService {
 
                 if (projectedUsage > dailyCap) {
                     const remaining = Math.max(0, dailyCap - currentUsage);
+                    const diff = parseFloat((convertedAmount - remaining).toFixed(2));
                     throw new BadRequestException(
-                        `Daily limit exceeded. Used: ${currentUsage.toFixed(2)}, Limit: ${dailyCap.toFixed(2)}, Remaining: ${remaining.toFixed(2)} ${accountCurrency}. This transaction requires ${convertedAmount.toFixed(2)} ${accountCurrency}.`,
+                        `LIMIT_EXCEEDED:daily:${payment.from_account_id}:${parseFloat(convertedAmount.toFixed(2))}:${dailyCap}:${diff}:${sourceAccount?.currency || 'USD'}:${parseFloat(currentUsage.toFixed(2))}:${parseFloat(remaining.toFixed(2))}`,
                     );
                 }
             }

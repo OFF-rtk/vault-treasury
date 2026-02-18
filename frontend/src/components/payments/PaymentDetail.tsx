@@ -21,6 +21,8 @@ import { approvePayment, rejectPayment } from "@/lib/actions/payments";
 import type { PaymentWithActions, PaymentAction } from "@/lib/actions/payments";
 import { cn } from "@/lib/utils";
 import { ApproveDialog, RejectDialog } from "./PaymentDialogs";
+import { LimitExceededDialog, parseLimitError } from "./LimitExceededDialog";
+import type { LimitErrorInfo } from "./LimitExceededDialog";
 import { useChallengeAction } from "@/hooks/useChallengeAction";
 
 // --- Helpers ---
@@ -67,6 +69,7 @@ export function PaymentDetailClient({ payment }: { payment: PaymentWithActions }
     const [isPending, startTransition] = useTransition();
     const [approveOpen, setApproveOpen] = useState(false);
     const [rejectOpen, setRejectOpen] = useState(false);
+    const [limitError, setLimitError] = useState<LimitErrorInfo | null>(null);
 
     const status = statusConfig[payment.status] || statusConfig.pending;
     const priority = priorityConfig[payment.priority] || priorityConfig.normal;
@@ -81,7 +84,14 @@ export function PaymentDetailClient({ payment }: { payment: PaymentWithActions }
     const { execute: challengeApprove } = useChallengeAction({
         action: approvePayment,
         onSuccess: () => router.refresh(),
-        onError: (err) => console.error('Approve failed:', err),
+        onError: (err) => {
+            const parsed = parseLimitError(err?.message || '');
+            if (parsed) {
+                setLimitError(parsed);
+            } else {
+                console.error('Approve failed:', err);
+            }
+        },
     });
 
     const { execute: challengeReject } = useChallengeAction({
@@ -93,12 +103,7 @@ export function PaymentDetailClient({ payment }: { payment: PaymentWithActions }
     const handleApproveConfirm = () => {
         setApproveOpen(false);
         startTransition(async () => {
-            try {
-                await challengeApprove(payment.id);
-                router.refresh();
-            } catch (error) {
-                console.error("Failed to approve:", error);
-            }
+            await challengeApprove(payment.id);
         });
     };
 
@@ -282,6 +287,11 @@ export function PaymentDetailClient({ payment }: { payment: PaymentWithActions }
                 onOpenChange={setRejectOpen}
                 onConfirm={handleRejectConfirm}
                 isPending={isPending}
+            />
+            <LimitExceededDialog
+                open={!!limitError}
+                onOpenChange={(open) => { if (!open) setLimitError(null); }}
+                limitInfo={limitError}
             />
         </div>
     );

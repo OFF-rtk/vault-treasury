@@ -4,6 +4,48 @@
 
 ---
 
+## 2026-02-18 — Feature: Payment Limit Exceeded Modal
+
+**Problem:** When a payment exceeds the account's per-transaction or daily limit, the backend returned a generic 400 error. The user had no visibility into *which* limit was breached, by how much, or how to request a change.
+
+**Solution:** Structured error propagation from backend → frontend with a rich modal dialog, integrated into both the payments list and payment detail pages.
+
+**Error Format:**
+
+Backend throws `BadRequestException` with a colon-delimited string that passes cleanly through Next.js server action boundaries:
+
+```
+LIMIT_EXCEEDED:per_transaction:accountId:txnAmount:limitAmount:difference:currency
+LIMIT_EXCEEDED:daily:accountId:txnAmount:limitAmount:difference:currency:currentUsage:remaining
+```
+
+**Architecture:**
+
+| Aspect | Detail |
+|--------|--------|
+| Error propagation | `BadRequestException(string)` → `smart-fetch` throws `Error(body.message)` → `useChallengeAction.onError` fires |
+| Parser | `parseLimitError()` — regex extracts type, accountId, and optional amounts from error string |
+| Modal z-order | `useChallengeAction` sets `processingState: 'idle'` *before* calling `onError`, so SecurityProcessingModal is already dismissed |
+| Deep-link | "Request Limit Change" button navigates to `/accounts/:id?requestLimit=true`, which auto-opens the `LimitDialog` |
+
+**Dialog Features:**
+- Payment amount vs. limit in a grid layout
+- Daily limits show "Used Today" and "Remaining" breakdown
+- Shortfall highlighted in red with explanatory text
+- Falls back to simple text if amount data is unavailable
+
+**Files Modified:**
+
+| File | Change |
+|------|--------|
+| `backend/src/payments/payments.service.ts` | `BadRequestException` with colon-delimited string including all amounts |
+| `frontend/src/components/payments/LimitExceededDialog.tsx` | **[NEW]** Dialog component + `parseLimitError()` + `LimitErrorInfo` type |
+| `frontend/src/components/payments/PaymentDetail.tsx` | Added `limitError` state, `parseLimitError` in `onError`, renders dialog |
+| `frontend/src/components/payments/PaymentList.tsx` | Same pattern — `limitError` state, `parseLimitError` in `onError`, renders dialog |
+| `frontend/src/components/accounts/AccountDetailClient.tsx` | Auto-opens `LimitDialog` when `?requestLimit=true` is in URL |
+
+---
+
 ## 2026-02-15 — Feature: Admin Account Balance Update
 
 **Problem:** Without a real bank connection, there's no way to fund accounts. The ERP simulator generates payments against internal accounts, but their balances start at seeded values and can only decrease through approved payments.

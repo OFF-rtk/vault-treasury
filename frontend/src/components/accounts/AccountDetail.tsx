@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition, useCallback, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -73,6 +73,7 @@ interface AccountDetailProps {
 
 export function AccountDetailClient({ account, userRole, pendingRequests = [] }: AccountDetailProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [limitDialogOpen, setLimitDialogOpen] = useState(false);
     const [balanceDialogOpen, setBalanceDialogOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
@@ -84,6 +85,13 @@ export function AccountDetailClient({ account, userRole, pendingRequests = [] }:
 
     const isAdmin = userRole === 'treasury_admin';
     const isRequestMode = !isAdmin;
+
+    // Auto-open limit dialog if deep-linked from limit exceeded modal
+    useEffect(() => {
+        if (searchParams.get('requestLimit') === 'true') {
+            setLimitDialogOpen(true);
+        }
+    }, [searchParams]);
 
     // Limit Logic
     const dailyLimit = account.limits?.find((l: AccountLimit) => l.limit_type === 'daily');
