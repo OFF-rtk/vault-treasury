@@ -4,6 +4,52 @@
 
 ---
 
+## 2026-02-19 — Patch: Sentinel HST Learning & Model Persistence Fixes
+
+**Problem:** HST model was not learning during cold start, and saved model blobs were corrupted on every reload — creating an infinite CHALLENGE loop. Audit log action names were also cryptic (e.g., `approve_payments`).
+
+**Root Causes Identified:**
+
+| Issue | Cause |
+|-------|-------|
+| HST not learning | Mode gate required `NORMAL` mode, but cold start forces `CHALLENGE` — deadlock |
+| Feature windows not emitting | `MAX_PENDING_EVENTS = 50` was too low for 120-char challenge text (needs ~240 events) |
+| Corrupted model blobs | `model_blob` column was `bytea(hex)` — Supabase REST API returned hex-encoded data, which failed base64 validation |
+| Model never rebuilding | Corrupted rows were never deleted, so upserts kept failing silently |
+| Single CHALLENGE then ALLOW forever | `completed_windows` were never cleared from Redis after learning |
+
+**Fixes Applied:**
+
+| File | Change |
+|------|--------|
+| `sentinel-ml/core/orchestrator.py` | Cold-start-aware mode gate: learn in any mode when HST < 50 windows, only `NORMAL` mode after |
+| `sentinel-ml/core/orchestrator.py` | Clear `completed_windows` from Redis after HST learning — forces fresh CHALLENGE each action during cold start |
+| `sentinel-ml/persistence/session_repository.py` | Increased `MAX_PENDING_EVENTS` from 50 → 300; added `_save_keyboard_state()` helper |
+| `sentinel-ml/persistence/model_store.py` | Auto-delete corrupted rows on detection; added zlib compression (5x size reduction); blob size logging |
+| `backend/src/sentinel/sentinel.guard.ts` | Replaced generic `extractActionType` with explicit route-to-label mapping |
+| `frontend/src/app/(auth)/verify/page.tsx` | Replaced short enrollment texts (~70 chars) with longer challenge texts (~120 chars) matching `sentinel.service.ts` |
+| **Supabase schema** | Changed `model_blob` column from `bytea` → `text` |
+
+**Audit Log Action Labels (sentinel.guard.ts):**
+
+| Route | New Label |
+|-------|-----------|
+| `POST payments/:id/approve` | Payment Approval |
+| `POST payments/:id/reject` | Payment Rejection |
+| `POST accounts/:id/limit-request` | Account Limit Change Request |
+| `PATCH accounts/:id/limits` | Account Limit Update |
+| `PATCH accounts/:id/balance` | Account Balance Update |
+| `POST admin/users/:id/approve` | User Approval |
+| `POST admin/users/:id/reject` | User Rejection |
+| `POST admin/users/:id/deactivate` | User Deactivation |
+| `POST admin/limit-requests/:id/approve` | Limit Request Approval |
+| `POST admin/limit-requests/:id/reject` | Limit Request Rejection |
+| `POST erp-simulator/start` | ERP Simulator Start |
+| `POST erp-simulator/stop` | ERP Simulator Stop |
+| `PATCH erp-simulator/config` | ERP Simulator Config Update |
+
+---
+
 ## 2026-02-18 — Feature: Payment Limit Exceeded Modal
 
 **Problem:** When a payment exceeds the account's per-transaction or daily limit, the backend returned a generic 400 error. The user had no visibility into *which* limit was breached, by how much, or how to request a change.

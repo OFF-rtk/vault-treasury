@@ -126,21 +126,39 @@ export class SentinelGuard implements CanActivate {
 
     /**
      * Extract a human-readable action type from the route path.
-     * e.g., /payments/:id/approve → approve_payment
-     *       /admin/users/:id/deactivate → deactivate_user
-     *       /accounts/:id/limits → update_account_limits
+     * Uses explicit mapping for known sentinel-protected routes.
      */
     private extractActionType(routePath: string, method: string): string {
-        const segments = routePath.split('/').filter(Boolean);
-        // Remove :param segments
-        const meaningful = segments.filter((s) => !s.startsWith(':'));
+        // Normalize: remove leading slash, collapse param segments
+        const normalized = routePath
+            .replace(/^\//, '')
+            .replace(/:[^/]+/g, ':id');
 
-        if (meaningful.length >= 2) {
-            const resource = meaningful[0]; // payments, admin, accounts
-            const action = meaningful[meaningful.length - 1]; // approve, reject, limits
-            return `${action}_${resource}`;
-        }
+        const ACTION_LABELS: Record<string, string> = {
+            // Payments
+            'payments/:id/approve': 'Payment Approval',
+            'payments/:id/reject': 'Payment Rejection',
 
-        return `${method.toLowerCase()}_${meaningful.join('_') || 'unknown'}`;
+            // Accounts
+            'accounts/:id/limit-request': 'Account Limit Change Request',
+            'accounts/:id/limits': 'Account Limit Update',
+            'accounts/:id/balance': 'Account Balance Update',
+
+            // Admin — Users
+            'admin/users/:id/approve': 'User Approval',
+            'admin/users/:id/reject': 'User Rejection',
+            'admin/users/:id/deactivate': 'User Deactivation',
+
+            // Admin — Limit Requests
+            'admin/limit-requests/:id/approve': 'Limit Request Approval',
+            'admin/limit-requests/:id/reject': 'Limit Request Rejection',
+
+            // ERP Simulator
+            'erp-simulator/start': 'ERP Simulator Start',
+            'erp-simulator/stop': 'ERP Simulator Stop',
+            'erp-simulator/config': 'ERP Simulator Config Update',
+        };
+
+        return ACTION_LABELS[normalized] || `${method.toUpperCase()} /${normalized}`;
     }
 }

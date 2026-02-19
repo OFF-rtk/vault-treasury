@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, X, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useChallenge } from './ChallengeProvider';
 
 export function ChallengeModal() {
@@ -12,6 +13,11 @@ export function ChallengeModal() {
 
     const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setTypedText(e.target.value);
+    }, []);
+
+    const handlePaste = useCallback((e: React.ClipboardEvent) => {
+        e.preventDefault();
+        toast.error('Security requirement: Please type the text manually.');
     }, []);
 
     const matchPercentage = challengeText.length > 0
@@ -103,6 +109,7 @@ export function ChallengeModal() {
                             autoFocus
                             value={typedText}
                             onChange={handleChange}
+                            onPaste={handlePaste}
                             placeholder="Start typing..."
                             className="w-full h-24 p-4 text-sm font-mono bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none resize-none transition-all text-slate-900 dark:text-white placeholder-slate-400"
                         />
