@@ -8,12 +8,21 @@ const SENTINEL_COOKIE = 'sentinel_session';
 const DEVICE_COOKIE = 'sentinel_device_id';
 
 /**
+ * Challenge response type — returned (not thrown) so it survives
+ * Next.js production error sanitization.
+ */
+export type ChallengeResponse = {
+    __challenge: true;
+    challengeText: string;
+};
+
+/**
  * SmartFetch — Server-side API client with session management.
  *
  * Handles:
  * - Auth headers from cookie
  * - X-Sentinel-Session + X-Device-Id header forwarding
- * - 428 Challenge Required → throws CHALLENGE_REQUIRED:{text}
+ * - 428 Challenge Required → returns ChallengeResponse (NOT thrown)
  * - 401 + X-Session-Terminated → redirect to /terminated
  */
 async function getAuthHeaders(): Promise<Record<string, string>> {
@@ -42,13 +51,6 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 async function handleErrorResponse(response: Response): Promise<never> {
-    // 428 Challenge Required → parse challenge_text
-    if (response.status === 428) {
-        const body = await response.json().catch(() => ({}));
-        const text = body.challenge_text || 'Please verify your identity';
-        throw new Error(`CHALLENGE_REQUIRED:${text}`);
-    }
-
     // 401 → check for session termination
     if (response.status === 401) {
         const terminated = response.headers.get('X-Session-Terminated');
@@ -79,7 +81,7 @@ export async function smartGet<T = any>(path: string): Promise<T> {
     return response.json();
 }
 
-export async function smartPost<T = any>(path: string, body?: any): Promise<T> {
+export async function smartPost<T = any>(path: string, body?: any): Promise<T | ChallengeResponse> {
     const headers = await getAuthHeaders();
 
     const response = await fetch(`${process.env.VAULT_API_URL}${path}`, {
@@ -89,6 +91,16 @@ export async function smartPost<T = any>(path: string, body?: any): Promise<T> {
         cache: 'no-store',
     });
 
+    // 428 Challenge Required → return structured object (NOT throw)
+    // Throwing causes Next.js production to sanitize the message
+    if (response.status === 428) {
+        const body = await response.json().catch(() => ({}));
+        return {
+            __challenge: true,
+            challengeText: body.challenge_text || 'Please verify your identity',
+        } as ChallengeResponse;
+    }
+
     if (!response.ok) {
         await handleErrorResponse(response);
     }
@@ -96,7 +108,7 @@ export async function smartPost<T = any>(path: string, body?: any): Promise<T> {
     return response.json();
 }
 
-export async function smartPatch<T = any>(path: string, body?: any): Promise<T> {
+export async function smartPatch<T = any>(path: string, body?: any): Promise<T | ChallengeResponse> {
     const headers = await getAuthHeaders();
 
     const response = await fetch(`${process.env.VAULT_API_URL}${path}`, {
@@ -105,6 +117,15 @@ export async function smartPatch<T = any>(path: string, body?: any): Promise<T> 
         body: body ? JSON.stringify(body) : undefined,
         cache: 'no-store',
     });
+
+    // 428 Challenge Required → return structured object (NOT throw)
+    if (response.status === 428) {
+        const body = await response.json().catch(() => ({}));
+        return {
+            __challenge: true,
+            challengeText: body.challenge_text || 'Please verify your identity',
+        } as ChallengeResponse;
+    }
 
     if (!response.ok) {
         await handleErrorResponse(response);
