@@ -64,39 +64,41 @@ export function useChallengeAction<T extends (...args: any[]) => Promise<any>>({
                     // Hide processing modal before showing challenge modal
                     setProcessingState('idle');
 
+                    // Step 1: Show challenge modal and wait for completion
+                    // This is the ONLY part where "Verification cancelled" applies
                     try {
-                        // Show challenge modal and wait for completion
                         await triggerChallenge(result.challengeText);
-
-                        // Force flush remaining events from the challenge typing
-                        await forceFlush();
-
-                        // Show processing modal during retry
-                        flushSync(() => setProcessingState('processing'));
-
-                        // Wait for Sentinel to process the newly streamed data
-                        // (needs time: browser → NestJS → Sentinel ML → Redis)
-                        await new Promise((r) => setTimeout(r, 500));
-
-                        // Retry the original action
-                        const retryResult = await action(...args);
-
-                        // Check if retry also got challenged
-                        if (isChallengeResponse(retryResult)) {
-                            setProcessingState('idle');
-                            onError?.(new Error('Behavioral data still processing. Please try again.'));
-                            return null;
-                        }
-
-                        setProcessingState('success');
-                        onSuccess?.(retryResult);
-                        return retryResult;
-                    } catch (challengeError: any) {
-                        // User cancelled the challenge modal
+                    } catch {
+                        // User closed/cancelled the challenge modal
                         setProcessingState('idle');
                         onError?.(new Error('Verification cancelled'));
                         return null;
                     }
+
+                    // Step 2: Challenge completed — flush, wait, retry
+                    // Errors here are real failures, NOT cancellations
+                    await forceFlush();
+
+                    // Show processing modal during retry
+                    flushSync(() => setProcessingState('processing'));
+
+                    // Wait for Sentinel to process the newly streamed data
+                    // (needs time: browser → NestJS → Sentinel ML → Redis)
+                    await new Promise((r) => setTimeout(r, 500));
+
+                    // Retry the original action
+                    const retryResult = await action(...args);
+
+                    // Check if retry also got challenged
+                    if (isChallengeResponse(retryResult)) {
+                        setProcessingState('idle');
+                        onError?.(new Error('Behavioral data still processing. Please try again.'));
+                        return null;
+                    }
+
+                    setProcessingState('success');
+                    onSuccess?.(retryResult);
+                    return retryResult;
                 }
 
                 // Normal success path
