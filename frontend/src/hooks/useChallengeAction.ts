@@ -20,9 +20,15 @@ function isChallengeResponse(result: unknown): result is ChallengeResponse {
     );
 }
 
+/**
+ * Strips ChallengeResponse from the action's return type so onSuccess
+ * only receives the actual data — challenges are handled internally.
+ */
+type StripChallenge<T> = Exclude<T, ChallengeResponse>;
+
 interface UseChallengeActionOptions<T extends (...args: any[]) => Promise<any>> {
     action: T;
-    onSuccess?: (result: Awaited<ReturnType<T>>) => void;
+    onSuccess?: (result: StripChallenge<Awaited<ReturnType<T>>>) => void;
     onError?: (error: Error) => void;
 }
 

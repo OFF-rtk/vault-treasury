@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { smartGet, smartPost, smartPatch } from '@/lib/api/smart-fetch';
+import { smartGet, smartPost, smartPatch, type ChallengeResponse } from '@/lib/api/smart-fetch';
 
 // --- Types ---
 
@@ -24,13 +24,13 @@ export async function fetchErpConfig(): Promise<ErpSimulatorConfig> {
     return smartGet<ErpSimulatorConfig>('/api/erp-simulator/config');
 }
 
-export async function startSimulator(): Promise<ErpSimulatorConfig> {
+export async function startSimulator(): Promise<ErpSimulatorConfig | ChallengeResponse> {
     const result = await smartPost<ErpSimulatorConfig>('/api/erp-simulator/start');
     revalidatePath('/admin/settings');
     return result;
 }
 
-export async function stopSimulator(): Promise<ErpSimulatorConfig> {
+export async function stopSimulator(): Promise<ErpSimulatorConfig | ChallengeResponse> {
     const result = await smartPost<ErpSimulatorConfig>('/api/erp-simulator/stop');
     revalidatePath('/admin/settings');
     return result;
@@ -38,7 +38,7 @@ export async function stopSimulator(): Promise<ErpSimulatorConfig> {
 
 export async function updateErpConfig(
     data: { interval_seconds?: number; min_amount?: number; max_amount?: number },
-): Promise<ErpSimulatorConfig> {
+): Promise<ErpSimulatorConfig | ChallengeResponse> {
     const result = await smartPatch<ErpSimulatorConfig>('/api/erp-simulator/config', data);
     revalidatePath('/admin/settings');
     return result;

@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { smartGet, smartPost, smartPatch } from '@/lib/api/smart-fetch';
+import { smartGet, smartPost, smartPatch, type ChallengeResponse } from '@/lib/api/smart-fetch';
 
 // --- Types ---
 
@@ -87,7 +87,7 @@ export async function fetchAccount(id: string): Promise<AccountWithDetails> {
 export async function updateAccountLimits(
     id: string,
     limits: { daily?: number; perTransaction?: number },
-): Promise<{ accountId: string; limits: AccountLimit[] }> {
+): Promise<{ accountId: string; limits: AccountLimit[] } | ChallengeResponse> {
     const result = await smartPatch<{ accountId: string; limits: AccountLimit[] }>(
         `/api/accounts/${id}/limits`,
         limits,
@@ -100,7 +100,7 @@ export async function updateAccountLimits(
 export async function updateAccountBalance(
     id: string,
     balance: number,
-): Promise<{ id: string; balance: number }> {
+): Promise<{ id: string; balance: number } | ChallengeResponse> {
     const result = await smartPatch<{ id: string; balance: number }>(
         `/api/accounts/${id}/balance`,
         { balance },
@@ -116,7 +116,7 @@ export async function requestLimitChange(
     accountId: string,
     limitType: 'daily' | 'per_transaction',
     requestedAmount: number,
-): Promise<LimitChangeRequest> {
+): Promise<LimitChangeRequest | ChallengeResponse> {
     const result = await smartPost<LimitChangeRequest>(
         `/api/accounts/${accountId}/limit-request`,
         { limitType, requestedAmount },

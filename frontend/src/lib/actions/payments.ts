@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { smartGet, smartPost } from '@/lib/api/smart-fetch';
+import { smartGet, smartPost, type ChallengeResponse } from '@/lib/api/smart-fetch';
 
 // --- Types ---
 
@@ -95,7 +95,7 @@ export async function fetchPayment(id: string): Promise<PaymentWithActions> {
     return smartGet<PaymentWithActions>(`/api/payments/${id}`);
 }
 
-export async function approvePayment(id: string, notes?: string): Promise<{ id: string; status: string }> {
+export async function approvePayment(id: string, notes?: string): Promise<{ id: string; status: string } | ChallengeResponse> {
     const result = await smartPost<{ id: string; status: string }>(`/api/payments/${id}/approve`, {
         notes: notes || undefined,
     });
@@ -103,7 +103,7 @@ export async function approvePayment(id: string, notes?: string): Promise<{ id: 
     return result;
 }
 
-export async function rejectPayment(id: string, reason: string): Promise<{ id: string; status: string }> {
+export async function rejectPayment(id: string, reason: string): Promise<{ id: string; status: string } | ChallengeResponse> {
     const result = await smartPost<{ id: string; status: string }>(`/api/payments/${id}/reject`, {
         reason,
     });

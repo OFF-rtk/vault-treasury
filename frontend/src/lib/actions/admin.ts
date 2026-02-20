@@ -1,6 +1,6 @@
 'use server';
 
-import { smartGet, smartPost } from '@/lib/api/smart-fetch';
+import { smartGet, smartPost, type ChallengeResponse } from '@/lib/api/smart-fetch';
 import { revalidatePath } from 'next/cache';
 
 // --- Types ---
@@ -34,20 +34,20 @@ export async function fetchAllUsers(): Promise<TreasuryUser[]> {
     return smartGet<TreasuryUser[]>('/api/admin/users');
 }
 
-export async function approveUser(userId: string): Promise<{ message: string }> {
+export async function approveUser(userId: string): Promise<{ message: string } | ChallengeResponse> {
     const result = await smartPost<{ message: string }>(`/api/admin/users/${userId}/approve`, {});
     revalidatePath('/admin/signups');
     revalidatePath('/admin/users');
     return result;
 }
 
-export async function rejectUser(userId: string): Promise<{ message: string }> {
+export async function rejectUser(userId: string): Promise<{ message: string } | ChallengeResponse> {
     const result = await smartPost<{ message: string }>(`/api/admin/users/${userId}/reject`, {});
     revalidatePath('/admin/signups');
     return result;
 }
 
-export async function deactivateUser(userId: string): Promise<{ message: string }> {
+export async function deactivateUser(userId: string): Promise<{ message: string } | ChallengeResponse> {
     const result = await smartPost<{ message: string }>(`/api/admin/users/${userId}/deactivate`, {});
     revalidatePath('/admin/users');
     return result;
@@ -55,13 +55,13 @@ export async function deactivateUser(userId: string): Promise<{ message: string 
 
 // --- Limit Request Admin Actions ---
 
-export async function approveLimitRequest(requestId: string): Promise<{ message: string }> {
+export async function approveLimitRequest(requestId: string): Promise<{ message: string } | ChallengeResponse> {
     const result = await smartPost<{ message: string }>(`/api/admin/limit-requests/${requestId}/approve`, {});
     revalidatePath('/accounts');
     return result;
 }
 
-export async function rejectLimitRequest(requestId: string, reason?: string): Promise<{ message: string }> {
+export async function rejectLimitRequest(requestId: string, reason?: string): Promise<{ message: string } | ChallengeResponse> {
     const result = await smartPost<{ message: string }>(`/api/admin/limit-requests/${requestId}/reject`, { reason });
     revalidatePath('/accounts');
     return result;
