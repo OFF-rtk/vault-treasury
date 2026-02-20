@@ -58,7 +58,7 @@ export class SentinelGuard implements CanActivate {
 
         // Build action context from the route
         const httpMethod = request.method;
-        const routePath = request.route?.path || request.url;
+        const routePath = request.url;
         const actionType = this.extractActionType(routePath, httpMethod);
         const resourceTarget = request.params?.id || 'unknown';
         const role = request.user?.role || 'user';
@@ -125,14 +125,21 @@ export class SentinelGuard implements CanActivate {
     }
 
     /**
-     * Extract a human-readable action type from the route path.
-     * Uses explicit mapping for known sentinel-protected routes.
+     * Extract a human-readable action type from the request URL.
+     * Normalizes the actual URL path by stripping /api/ prefix and
+     * replacing UUID path segments with :id for lookup.
      */
     private extractActionType(routePath: string, method: string): string {
-        // Normalize: remove leading slash, collapse param segments
+        // Strip /api/ prefix and leading/trailing slashes
         const normalized = routePath
+            .replace(/^\/api\//, '')
             .replace(/^\//, '')
-            .replace(/:[^/]+/g, ':id');
+            .replace(/\/$/, '')
+            // Replace UUID segments (8-4-4-4-12 hex) with :id
+            .replace(
+                /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+                ':id',
+            );
 
         const ACTION_LABELS: Record<string, string> = {
             // Payments
