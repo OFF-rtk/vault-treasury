@@ -47,7 +47,7 @@ function TerminatedContent() {
     }, [remaining]);
 
     return (
-        <div className="min-h-dvh flex items-center justify-center bg-slate-50 px-4 py-8 relative overflow-hidden">
+        <div className="min-h-dvh w-full flex items-center justify-center bg-slate-50 px-3 sm:px-4 py-8 relative overflow-x-hidden">
 
             {/* Background Pattern */}
             <div
@@ -58,7 +58,7 @@ function TerminatedContent() {
                 }}
             />
 
-            <div className="w-full max-w-xs sm:max-w-md relative z-10">
+            <div className="w-full max-w-[calc(100vw-1.5rem)] sm:max-w-md relative z-10">
                 <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
 
                     {/* Header: High Contrast Error */}

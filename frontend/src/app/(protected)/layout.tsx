@@ -25,7 +25,7 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
 
             {/* 3. Main Content Area with Sentinel + Challenge wrappers */}
             <main className="flex-1 ml-0 md:ml-64">
-                <div className="container mx-auto max-w-7xl px-4 sm:px-6 md:px-8 py-6 md:py-10">
+                <div className="container mx-auto max-w-7xl px-4 sm:px-6 md:px-8 pt-16 md:pt-10 pb-6 md:pb-10">
                     <SentinelWrapper>
                         {children}
                     </SentinelWrapper>

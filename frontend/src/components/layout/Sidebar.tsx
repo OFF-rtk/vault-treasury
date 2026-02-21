@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     CreditCard,
@@ -14,7 +14,9 @@ import {
     LayoutDashboard,
     Settings,
     PieChart,
-    LockKeyhole
+    LockKeyhole,
+    Menu,
+    X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -74,6 +76,12 @@ export function Sidebar({ user }: { user: UserInfo }) {
     const pathname = usePathname();
     const isAdmin = user.role === "treasury_admin";
     const [loggingOut, setLoggingOut] = useState(false);
+    const [mobileOpen, setMobileOpen] = useState(false);
+
+    // Close mobile sidebar on route change
+    useEffect(() => {
+        setMobileOpen(false);
+    }, [pathname]);
 
     const handleLogout = async () => {
         setLoggingOut(true);
@@ -86,34 +94,48 @@ export function Sidebar({ user }: { user: UserInfo }) {
         }
     };
 
-    return (
+    const sidebarContent = (
         <>
-            <motion.aside
-                initial="hidden"
-                animate="visible"
-                variants={sidebarVariants}
-                className="fixed left-0 top-0 z-40 h-screen w-64 bg-slate-50 text-slate-900 border-r border-slate-200 shadow-sm hidden md:flex flex-col"
-            >
-                {/* 1. Header (Clean & Static) */}
-                <div className="h-16 flex items-center px-6 border-b border-slate-200 bg-slate-50 z-10">
-                    <div className="flex items-center gap-3">
-                        {/* The Vault Icon (Slate-900) */}
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 shadow-md shadow-slate-900/10">
-                            <div className="h-3 w-3 bg-white rounded-full"></div>
-                        </div>
-
-                        {/* Brand Name */}
-                        <span className="block text-lg font-bold text-slate-900 tracking-tight">
-                            VAULT
-                        </span>
+            {/* 1. Header (Clean & Static) */}
+            <div className="h-16 flex items-center px-6 border-b border-slate-200 bg-slate-50 z-10">
+                <div className="flex items-center gap-3 flex-1">
+                    {/* The Vault Icon (Slate-900) */}
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 shadow-md shadow-slate-900/10">
+                        <div className="h-3 w-3 bg-white rounded-full"></div>
                     </div>
+
+                    {/* Brand Name */}
+                    <span className="block text-lg font-bold text-slate-900 tracking-tight">
+                        VAULT
+                    </span>
                 </div>
 
-                {/* 2. Navigation (Scrollable) */}
-                <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scrollbar-none">
+                {/* Mobile close button */}
+                <button
+                    onClick={() => setMobileOpen(false)}
+                    className="md:hidden p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                    <X className="h-5 w-5" />
+                </button>
+            </div>
+
+            {/* 2. Navigation (Scrollable) */}
+            <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scrollbar-none">
+                <div className="space-y-1">
+                    <SectionLabel>Operations</SectionLabel>
+                    {navItems.map((item) => (
+                        <NavLink
+                            key={item.href}
+                            item={item}
+                            isActive={pathname.startsWith(item.href)}
+                        />
+                    ))}
+                </div>
+
+                {isAdmin && (
                     <div className="space-y-1">
-                        <SectionLabel>Operations</SectionLabel>
-                        {navItems.map((item) => (
+                        <SectionLabel>Administration</SectionLabel>
+                        {adminItems.map((item) => (
                             <NavLink
                                 key={item.href}
                                 item={item}
@@ -121,57 +143,95 @@ export function Sidebar({ user }: { user: UserInfo }) {
                             />
                         ))}
                     </div>
+                )}
+            </nav>
 
-                    {isAdmin && (
-                        <div className="space-y-1">
-                            <SectionLabel>Administration</SectionLabel>
-                            {adminItems.map((item) => (
-                                <NavLink
-                                    key={item.href}
-                                    item={item}
-                                    isActive={pathname.startsWith(item.href)}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </nav>
+            {/* 3. Footer (User Session) */}
+            <div className="border-t border-slate-200 bg-slate-100/50 p-4">
+                <motion.div
+                    whileHover={{ scale: 1.01 }}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-all border border-transparent hover:border-slate-200 hover:shadow-sm cursor-default group"
+                >
+                    <Avatar className="h-9 w-9 border border-slate-200 bg-white">
+                        <AvatarFallback className="text-xs font-semibold text-slate-700 bg-slate-100">
+                            {getInitials(user.fullName)}
+                        </AvatarFallback>
+                    </Avatar>
 
-                {/* 3. Footer (User Session) */}
-                <div className="border-t border-slate-200 bg-slate-100/50 p-4">
-                    <motion.div
-                        whileHover={{ scale: 1.01 }}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-all border border-transparent hover:border-slate-200 hover:shadow-sm cursor-default group"
-                    >
-                        <Avatar className="h-9 w-9 border border-slate-200 bg-white">
-                            <AvatarFallback className="text-xs font-semibold text-slate-700 bg-slate-100">
-                                {getInitials(user.fullName)}
-                            </AvatarFallback>
-                        </Avatar>
-
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-900 truncate">
-                                {user.fullName}
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">
+                            {user.fullName}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                            <p className="text-[10px] text-slate-500 truncate font-mono uppercase font-medium">
+                                {isAdmin ? "Admin" : "Treasurer"}
                             </p>
-                            <div className="flex items-center gap-1.5">
-                                <p className="text-[10px] text-slate-500 truncate font-mono uppercase font-medium">
-                                    {isAdmin ? "Admin" : "Treasurer"}
-                                </p>
-                            </div>
                         </div>
+                    </div>
 
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleLogout();
-                            }}
-                            className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
-                            title="Sign out"
-                        >
-                            <LogOut className="h-4 w-4" />
-                        </button>
-                    </motion.div>
-                </div>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleLogout();
+                        }}
+                        className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                        title="Sign out"
+                    >
+                        <LogOut className="h-4 w-4" />
+                    </button>
+                </motion.div>
+            </div>
+        </>
+    );
+
+    return (
+        <>
+            {/* Mobile hamburger button */}
+            <button
+                onClick={() => setMobileOpen(true)}
+                className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+                aria-label="Open navigation"
+            >
+                <Menu className="h-5 w-5" />
+            </button>
+
+            {/* Desktop sidebar — always visible */}
+            <motion.aside
+                initial="hidden"
+                animate="visible"
+                variants={sidebarVariants}
+                className="fixed left-0 top-0 z-40 h-screen w-64 bg-slate-50 text-slate-900 border-r border-slate-200 shadow-sm hidden md:flex flex-col"
+            >
+                {sidebarContent}
             </motion.aside>
+
+            {/* Mobile sidebar — slide-out overlay */}
+            <AnimatePresence>
+                {mobileOpen && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            onClick={() => setMobileOpen(false)}
+                            className="md:hidden fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px]"
+                        />
+
+                        {/* Sidebar drawer */}
+                        <motion.aside
+                            initial={{ x: -280 }}
+                            animate={{ x: 0 }}
+                            exit={{ x: -280 }}
+                            transition={{ type: "spring", damping: 28, stiffness: 350 }}
+                            className="md:hidden fixed left-0 top-0 z-50 h-screen w-64 bg-slate-50 text-slate-900 border-r border-slate-200 shadow-xl flex flex-col"
+                        >
+                            {sidebarContent}
+                        </motion.aside>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Logout Overlay */}
             <AnimatePresence>
