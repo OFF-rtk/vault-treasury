@@ -5,8 +5,8 @@ import { logoutAction } from '@/lib/auth/actions';
 
 export default function UnderReviewPage() {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-            <div className="w-full max-w-md">
+        <div className="min-h-dvh flex items-center justify-center bg-slate-50 px-4 py-8">
+            <div className="w-full max-w-xs sm:max-w-md">
 
                 {/* Status Card */}
                 <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden relative">

@@ -124,8 +124,10 @@ export class AuthController {
                 } catch (err) {
                     this.logger.error(`Failed to terminate session for ${userId}: ${err}`);
                 }
+                // Include ban TTL so frontend can display countdown
+                const banExpires = result.ban_expires_in_seconds || 0;
                 throw new HttpException(
-                    { statusCode: 401, message: 'Session terminated by security system' },
+                    { statusCode: 401, message: 'Session terminated by security system', ban_expires_in_seconds: banExpires },
                     HttpStatus.UNAUTHORIZED,
                 );
 

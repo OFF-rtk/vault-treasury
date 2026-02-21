@@ -83,6 +83,10 @@ function VerifyContent() {
                 const role = await getUserRole();
                 const target = role === 'treasury_admin' ? '/admin/signups' : '/payments';
                 setTimeout(() => router.push(target), 800);
+            } else if (result.blocked) {
+                // BLOCK decision — session terminated by Sentinel
+                const expires = result.banExpires || 0;
+                router.push(`/terminated?expires=${expires}`);
             } else if (result.challenge && result.challengeText) {
                 // Sentinel ML flagged risk — re-prompt with new challenge text
                 setChallengeText(result.challengeText);
@@ -108,7 +112,7 @@ function VerifyContent() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="w-full max-w-md mx-auto space-y-6"
+            className="w-full max-w-sm sm:max-w-md mx-auto space-y-4 sm:space-y-6"
         >
             {/* Header */}
             <div className="space-y-2">

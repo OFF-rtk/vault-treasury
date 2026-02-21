@@ -47,7 +47,7 @@ function TerminatedContent() {
     }, [remaining]);
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 relative overflow-hidden">
+        <div className="min-h-dvh flex items-center justify-center bg-slate-50 px-4 py-8 relative overflow-hidden">
 
             {/* Background Pattern */}
             <div
@@ -58,7 +58,7 @@ function TerminatedContent() {
                 }}
             />
 
-            <div className="w-full max-w-md relative z-10">
+            <div className="w-full max-w-xs sm:max-w-md relative z-10">
                 <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
 
                     {/* Header: High Contrast Error */}
@@ -134,8 +134,8 @@ function TerminatedContent() {
                             <Button
                                 type="submit"
                                 className={`w-full font-medium h-10 shadow-sm ${expired
-                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                        : 'bg-slate-900 hover:bg-slate-800 text-white'
+                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                    : 'bg-slate-900 hover:bg-slate-800 text-white'
                                     } transition-colors duration-500`}
                             >
                                 {expired

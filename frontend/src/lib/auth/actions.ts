@@ -159,7 +159,7 @@ export async function requireAdmin(): Promise<UserProfile> {
 
 // Add this to lib/auth/actions.ts
 
-export async function verifyBehavioral(sessionId: string): Promise<{ success: boolean; error?: string; challenge?: boolean; challengeText?: string }> {
+export async function verifyBehavioral(sessionId: string): Promise<{ success: boolean; error?: string; challenge?: boolean; challengeText?: string; blocked?: boolean; banExpires?: number }> {
     const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
 
@@ -188,7 +188,12 @@ export async function verifyBehavioral(sessionId: string): Promise<{ success: bo
         });
 
         if (!response.ok) {
-            // If the backend returns 401/403 (BLOCK), we fail here
+            // 401 = BLOCK decision from Sentinel → session terminated
+            if (response.status === 401) {
+                const body = await response.json().catch(() => ({}));
+                const banExpires = body.ban_expires_in_seconds || 0;
+                return { success: false, blocked: true, banExpires, error: 'Session terminated by security system.' };
+            }
             return { success: false, error: 'Behavioral verification failed.' };
         }
 

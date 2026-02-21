@@ -3,11 +3,11 @@ import LiquiditySnapshot from '@/components/auth/LiquiditySnapshot';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
     return (
-        // H-screen prevents scrolling on login
-        <div className="h-screen w-full flex bg-[var(--gray-50)] dark:bg-[var(--dark-bg)] overflow-hidden">
+        // min-h-screen allows scrolling on narrow/short screens
+        <div className="min-h-screen w-full flex bg-[var(--gray-50)] dark:bg-[var(--dark-bg)]">
 
             {/* Left Side: Auth Form */}
-            <div className="w-full lg:w-[45%] flex flex-col justify-center px-6 sm:px-12 lg:px-20 bg-white dark:bg-[var(--dark-bg)] z-10 border-r border-[var(--gray-200)] dark:border-[var(--dark-border)] overflow-y-auto">
+            <div className="w-full lg:w-[45%] flex flex-col justify-center px-4 sm:px-8 md:px-12 lg:px-20 py-8 bg-white dark:bg-[var(--dark-bg)] z-10 border-r border-[var(--gray-200)] dark:border-[var(--dark-border)] overflow-y-auto">
                 {children}
             </div>
 

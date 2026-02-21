@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
  */
 export function SidebarSkeleton() {
     return (
-        <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-slate-50 text-slate-900 border-r border-slate-200 shadow-sm flex flex-col">
+        <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-slate-50 text-slate-900 border-r border-slate-200 shadow-sm hidden md:flex flex-col">
             {/* 1. Header */}
             <div className="h-16 flex items-center px-6 border-b border-slate-200 bg-slate-50 z-10">
                 <div className="flex items-center gap-3">
