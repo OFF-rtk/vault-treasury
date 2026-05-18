@@ -1,5 +1,5 @@
 # Backend Dockerfile - Multi-stage build
-FROM node:20-alpine AS base
+FROM node:20.18-alpine AS base
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
