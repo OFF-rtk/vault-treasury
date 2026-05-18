@@ -4,7 +4,7 @@ FROM node:22-alpine AS base
 # Install pnpm
 RUN npm install -g corepack@latest && \
     corepack enable && \
-    corepack prepare pnpm@latest --activate
+    corepack prepare pnpm@10.25.0 --activate
 
 # ============================================================
 # Development stage
