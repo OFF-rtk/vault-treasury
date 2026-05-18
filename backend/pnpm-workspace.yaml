@@ -1,3 +1,5 @@
 onlyBuiltDependencies:
   - '@nestjs/core'
   - unrs-resolver
+
+minimumReleaseAge: 0
