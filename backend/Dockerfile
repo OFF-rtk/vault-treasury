@@ -2,7 +2,9 @@
 FROM node:20.18-alpine AS base
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN npm install -g corepack@latest && \
+    corepack enable && \
+    corepack prepare pnpm@latest --activate
 
 # ============================================================
 # Development stage
